@@ -14,18 +14,16 @@ int main(int argc, char **argv) {
     // argv[7] –sip 
     // argv[8] servIP
 
-    // if(argv[8]==NULL){
-    //     fprintf(stderr, "Command must be in form: ./whoServer –q queryPortNum -s statisticsPortNum –w numThreads –b bufferSize!\n");
-    //     exit(1);
-    // }
+    if(argv[8]==NULL){
+        fprintf(stderr, "Command must be in form: ./whoServer –q queryPortNum -s statisticsPortNum –w numThreads –b bufferSize!\n");
+        exit(1);
+    }
 
-    f();
-
-    struct sockaddr_in servaddr;
-    int sockfd, n;
-    int sendbytes;
-    char sendline[MAXLINE];
-    char recvline[MAXLINE];
+    // struct sockaddr_in servaddr;
+    // int sockfd, n;
+    // int sendbytes;
+    // char sendline[MAXLINE];
+    // char recvline[MAXLINE];
 
     int port, sock, i;
     char buf[256];
@@ -33,15 +31,18 @@ int main(int argc, char **argv) {
     struct sockaddr *serverptr = (struct  sockaddr *)&server;
     struct hostent *rem;
 
+    char* ServerAddress = strdup(argv[8]);
+    int ServerPort = atoi(argv[6]);
+
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////////////
     // ntoulas capitalize
-    if (argc != 3) {
-        printf("Please  give  host  name  and  port  number\n");
-        exit (1);
-    }
+    // if (argc != 3) {
+    //     printf("Please  give  host  name  and  port  number\n");
+    //     exit (1);
+    // }
 
 
     /*  Create  socket  */
@@ -50,12 +51,13 @@ int main(int argc, char **argv) {
     }    
     
     /*  Find  server  address  */
-    if ((rem = gethostbyname(argv[1])) == NULL) {
+    if ((rem = gethostbyname(ServerAddress)) == NULL) {
         herror("gethostbyname");
         exit (1);
     }
 
-    port = atoi(argv [2]); /* Convert  port  number  to  integer */
+    // port = atoi(argv [2]); /* Convert  port  number  to  integer */
+    port = ServerPort;
     server.sin_family = AF_INET; /*  Internet  domain  */
     memcpy(&server.sin_addr, rem->h_addr, rem->h_length);
     server.sin_port = htons(port);/*  Server  port  */
@@ -64,7 +66,7 @@ int main(int argc, char **argv) {
     if (connect(sock , serverptr , sizeof(server)) < 0)
         perror_exit("connect");
     
-    printf("Connecting to %s port %d\n", argv[1], port);
+    printf("Connecting to %d port %d\n", ServerPort, port);
 
     do {
         printf("Give  input  string: ");
@@ -75,10 +77,10 @@ int main(int argc, char **argv) {
             if (write(sock , buf + i, 1) < 0)
                 perror_exit("write");/*  receive i-th  character  transformed  */
             
-            if (read(sock , buf + i, 1) < 0)
-                perror_exit("read");
+            // if (read(sock , buf + i, 1) < 0)
+                // perror_exit("read");
         }
-        printf("Received  string: %s", buf);
+        // printf("Received  string: %s", buf);
     }
     while (strcmp(buf , "END\n") != 0);/*  Finish  on "end" */
     

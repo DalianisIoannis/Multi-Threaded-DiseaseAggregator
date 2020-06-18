@@ -230,12 +230,6 @@ int WorkerRun(char* inDir, int bufferSize, int rfd, int wfd){
     //////////////////////////////////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////////////
     // communicate with server
-    struct sockaddr_in servaddr;
-    int sockfd, n;
-    int sendbytes;
-    char sendline[4096];
-    char recvline[4096];
-
     int sock;
     char buf[256];
     struct sockaddr_in server;
@@ -296,6 +290,11 @@ int WorkerRun(char* inDir, int bufferSize, int rfd, int wfd){
 
     // sendMessage(wfd, "OK", bufferSize);
     sendMessageSock(sock, "OK");
+
+    // receive message from server
+    readed = receiveMessageSock(sock, arr);
+    printf("%s\n", readed);
+    free(readed);
 
     close(sock);/*  Close  socket  and  exit  */
 

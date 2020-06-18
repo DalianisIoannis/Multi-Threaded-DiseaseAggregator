@@ -3,11 +3,14 @@
 #include "./general.h"
 #include <pthread.h>
 
+#define ISWORKER 1
+#define ISQUERY 2
 
 typedef struct qNode {
 
     int *clientSocket;
     int qSocket;
+    int identity;   // 0 for empty 1 for worker 2 for query
     char* port;
 
     struct qNode *next;
@@ -23,9 +26,9 @@ typedef struct {
 } threadQueue;
 typedef threadQueue* threadQueuePtr;
 
-void f();
-threadQueuePtr newQueue();
-void enqueue(threadQueuePtr* Queue, int* clientSocket);
-void delQueue(threadQueuePtr* Queue);
-qNodePtr dequeue(threadQueuePtr* Queue);
-void delThreadNode(qNodePtr* myNode);
+
+threadQueuePtr  newQueue();
+void            enqueue(threadQueuePtr* Queue, int* clientSocket, int WhatWork);
+void            delQueue(threadQueuePtr* Queue);
+qNodePtr        dequeue(threadQueuePtr* Queue);
+void            delThreadNode(qNodePtr* myNode);

@@ -113,25 +113,6 @@ int main(int argc, char **argv)
 
     sendCountriesToWorkers(WorkersArr, input_dir, numWorkers, bufferSize, countriesListArray);
 
-    // // get statistics
-    // for (int i=0; i < numWorkers; i++) {
-    //     for( ; ; ) {
-
-    //         char arr[bufferSize];
-    //         char* readed = receiveMessage(WorkersArr[i]->fdRead, arr, bufferSize);
-
-    //         if(strcmp(readed, "OK")==0){
-    //             free(readed);
-    //             break;
-    //         }
-            
-    //         printStatsFromConcat(readed);
-            
-    //         free(readed);
-
-    //     }
-    // }
-
     FatherQuerries(WorkersArr, numWorkers, bufferSize, countriesListArray);
 
     for(int i=0; i < numWorkers; i++) {

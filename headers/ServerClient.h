@@ -48,7 +48,6 @@ void *child_serverThread(void *newsock);
 void perror_exit(char *message);
 void sigchld_handler (int  sig);
 
-// void printTry(const int newsock);
 
 int sendMessageSock(int fd, char* buf);
 char* receiveMessageSock(int fd, char* buf);

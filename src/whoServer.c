@@ -5,19 +5,25 @@
 #include "../headers/threadQueue.h"
 #include <pthread.h>
 
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t mutex2 = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutexForThreadFunc = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutexForArrOfSock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex3 = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond_var = PTHREAD_COND_INITIALIZER;
-
-// int bufferSize;
 
 void* threadFunc(void* arg);
 void *printTry(void *Pnewsock);
 
 pthread_t *Threadpool = NULL;
-
 threadQueuePtr myThreadQue = NULL;
+
+int Termination = 0;
+int Sigkill = 0;
+int MySignalFlagForSIGINT_SIGQUIT=0;
+
+int setupServer(short port, int backlog);
+
+void Myhandler(int sig, siginfo_t* siginfo, void* buf);
+void ServerHandler(struct sigaction *act, void (*Myhandler)(int, siginfo_t*, void*));
 
 int main(int argc, char **argv) {
 
@@ -36,24 +42,27 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
-    int server_socket, client_socket, addr_size;
-    int querySocket, statSocket;
-    int listenfd, connfd, n;
-    struct sockaddr_in servaddr;
-    SA_IN server_addr, client_addr;
+    // int statSocket;
+    // SA_IN server_addr;
+    // sigset_t emptSet;
     // uint8_t buff[MAXLINE+1];
     // uint8_t recvline[MAXLINE+1];
-
+    int ArrayOfSocketFunc[1024];
+    for(int i=0; i<1024; i++) {
+        ArrayOfSocketFunc[i] = 0;
+    }
     int sock;
-    int newsock;
-    struct sockaddr_in server, client;
+    int newWorker, newClient;
+    struct sockaddr_in client, worker;
+    socklen_t workerlen = 0;
     socklen_t clientlen = 0;
-    struct sockaddr *serverptr = (struct sockaddr*) &server;
-    struct sockaddr *clientptr = (struct sockaddr*) &client;
+    struct sockaddr *clientPtr = (struct sockaddr*) &client;
+    struct sockaddr *workerPtr = (struct sockaddr*) &worker;
     struct hostent *rem;
 
-    struct sigaction act;
-    fd_set fds1, fds2;
+    struct sigaction *act = malloc(sizeof(struct sigaction));
+    // ServerHandler(act, Myhandler);
+    fd_set readyDescriptors, currentDescriptors;
 
     int queryPort = atoi(argv[2]);
     int statsPort = atoi(argv[4]);
@@ -80,54 +89,94 @@ int main(int argc, char **argv) {
         pthread_create(&Threadpool[i], NULL, printTry, NULL);
     }
 
-    int workerSocket;
-    if ((workerSocket = socket(AF_INET , SOCK_STREAM , 0)) < 0) {
-        perror_exit("socket");
-    }
+    int workerSocket = setupServer(statsPort, SERVER_BACKLOG);
+    int clientSocket = setupServer(queryPort, SERVER_BACKLOG);
 
-    server.sin_family = AF_INET;
-    server.sin_addr.s_addr = htonl(INADDR_ANY);
-    server.sin_port = htons(statsPort);
+    FD_ZERO(&currentDescriptors);
+    FD_SET(workerSocket, &currentDescriptors);
+    FD_SET(clientSocket, &currentDescriptors);
+    int maxfd = returnMaxInt(workerSocket, clientSocket) + 1;
 
-    /*  Bind  socket  to  address  */
-    if (bind(workerSocket , serverptr , sizeof(server)) < 0) {
-        perror_exit("bind");
-    }
-    
-    /*  Listen  for  connections  */
-    if (listen(workerSocket , SERVER_BACKLOG) < 0) {
-        perror_exit("listen");
-    }
+    printf("Listening from statsPort %d\n", statsPort);
+    printf("Listening from queryPort %d\n", queryPort);
 
-    printf("Listening  for  connections  to port %d\n", statsPort);
     while  (1) {
 
-        /*  accept  connection  */
-        if (( newsock = accept(workerSocket, clientptr, &clientlen)) < 0) {
-            perror_exit("accept");
+        readyDescriptors = currentDescriptors;
+
+        if( pselect(maxfd, &readyDescriptors, NULL, NULL, NULL, NULL)<0 ) {
+            perror("Select error");
+            return -1;
         }
+        else {
 
-        // memset(&server, 0, sizeof(struct sockaddr_in));
-        // socklen_t sa_len = sizeof(struct sockaddr_in);
-        // int tmpRealPort = getsockname(workerSocket, (struct sockaddr *)&server, &sa_len);
-        // printf("In pid %d returned %d\n", getpid(), tmpRealPort);
-        // char* toNtoa = strdup(inet_ntoa(server.sin_addr));
-        // printf("In pid %d toNtoa %s\n", getpid(), toNtoa);
-        // int ntoHs = ntohs(server.sin_port);
-        // printf("In pid %d ntoHs %d\n", getpid(), ntoHs);
+            for(int i=0; i<maxfd; i++) {
 
-        printf("Accepted  connection.\n");
-        
-        // printTry(newsock);
+                if(FD_ISSET(i, &readyDescriptors)) {
 
-        int *pclient = malloc(sizeof(int));
-        *pclient = newsock;
-        pthread_mutex_lock(&mutex);
+                    if(i==workerSocket) {
 
-        enqueue(&myThreadQue, pclient);
-        pthread_cond_signal(&cond_var);
-        
-        pthread_mutex_unlock(&mutex);
+                        /*  accept  connection  */
+                        if (( newWorker = accept(workerSocket, workerPtr, &workerlen)) < 0) {
+                            perror_exit("accept");
+                        }
+                        
+                        // if(MySignalFlagForSIGINT_SIGQUIT==-1 || MySignalFlagForSIGINT_SIGQUIT==-2) {
+                        //     MySignalFlagForSIGINT_SIGQUIT=0;
+                        //     break;
+                        // }
+
+                        FD_SET(newWorker, &currentDescriptors);
+                        maxfd = returnMaxInt(maxfd, newWorker) + 1;
+                        
+                        pthread_mutex_lock(&mutexForArrOfSock);
+                        ArrayOfSocketFunc[newWorker] = ISWORKER;
+                        pthread_mutex_unlock(&mutexForArrOfSock);
+
+
+                    }
+                    else if(i==clientSocket) {
+
+                        /*  accept  connection  */
+                        if (( newClient = accept(clientSocket, clientPtr, &clientlen)) < 0) {
+                            perror_exit("accept");
+                        }
+
+                        FD_SET(newClient, &currentDescriptors);
+                        maxfd = returnMaxInt(maxfd, newClient) + 1;
+
+                        pthread_mutex_lock(&mutexForArrOfSock);
+                        ArrayOfSocketFunc[newWorker] = ISQUERY;
+                        pthread_mutex_unlock(&mutexForArrOfSock);
+
+                    }
+                    else {
+
+                        memset(&worker, 0, sizeof(struct sockaddr_in));
+                        socklen_t sa_len = sizeof(struct sockaddr_in);
+                        int tmpRealPort = getsockname(i, (struct sockaddr *)&worker, &sa_len);
+                        printf("In pid %d returned %d\n", getpid(), tmpRealPort);
+                        char* toNtoa = strdup(inet_ntoa(worker.sin_addr));
+                        printf("In pid %d toNtoa %s\n", getpid(), toNtoa);
+                        int ntoHs = ntohs(worker.sin_port);
+                        printf("In pid %d ntoHs %d\n", getpid(), ntoHs);
+
+                        int *pclient = malloc(sizeof(int));
+                        *pclient = i;
+                        pthread_mutex_lock(&mutexForThreadFunc);
+
+                        enqueue(&myThreadQue, pclient, ArrayOfSocketFunc[i]);
+                        
+                        FD_CLR(i, &currentDescriptors);
+                        
+                        pthread_cond_signal(&cond_var);
+                        
+                        pthread_mutex_unlock(&mutexForThreadFunc);
+
+                    }
+                }
+            }
+        }
 
     }
 
@@ -149,41 +198,9 @@ int main(int argc, char **argv) {
     //////////////////////////////////////////////////////////////////////////////////////////////////////
     // ntoulas capitalize
     
-    // myThreadQue = newQueue();
-
-    // if( (Threadpool = malloc(numThreads*sizeof(pthread_t)))==NULL ) {
-    //     perror_exit("Threadpool");
-    // }
-
-    // for(int i=0; i<numThreads; i++) {
-    //     pthread_create(&Threadpool[i], NULL, threadFunc, NULL);
-    // }
     
     // /*  Reap  dead  children  asynchronously  */
     // signal(SIGCHLD , sigchld_handler);
-
-    // /*  Create  socket  for queryPortNum */
-    // if ((statSocket = socket(AF_INET , SOCK_STREAM , 0)) < 0) {
-    //     perror_exit("socket");
-    // }
-
-    // server.sin_family = AF_INET;
-    // server.sin_addr.s_addr = htonl(INADDR_ANY);
-    // server.sin_port = htons(statsPort);
-
-    // /*  Bind  socket  to  address  */
-    // if (bind(statSocket , serverptr , sizeof(server)) < 0) {
-    //     perror_exit("bind");
-    // }
-    
-    // /*  Listen  for  connections  */
-    // if (listen(statSocket , SERVER_BACKLOG) < 0) {
-    //     perror_exit("listen");
-    // }
-
-    // // FD_ZERO(&fds1);
-    // // FD_SET(statSocket, &fds1)
-    // // maxfd = returnMaxInt()
 
     // printf("Listening  for  connections  to port %d\n", statsPort);
     // while  (1) {
@@ -192,20 +209,6 @@ int main(int argc, char **argv) {
     //     if (( newsock = accept(statSocket, clientptr, &clientlen)) < 0) {
     //         perror_exit("accept");
     //     }
-
-    //     printf("Accepted  connection.\n");
-    //     // switch (fork()) {   /*  Create  child  for  serving  client  */
-    //     //     case  -1:       /*  Error  */
-    //     //         perror("fork");
-    //     //         break;
-    //     // case 0:             /*  Child  process  */
-    //     //     close(statSocket);
-    //     //     child_serverNoThread(newsock);
-    //     //     exit (0);
-    //     // }
-    //     // close(newsock);     /*  parent  closes  socket  to  client */
-
-
         
     //     // child_serverNoThread(newsock);
 
@@ -237,7 +240,7 @@ int main(int argc, char **argv) {
 
     // delQueue(&myThreadQue);
 
-    f();
+    free(act);
 
     return 0;
 }
@@ -246,71 +249,116 @@ int main(int argc, char **argv) {
 void* threadFunc(void* arg) {
 
     qNodePtr tmp = NULL;
-
     while(true) {
-        pthread_mutex_lock(&mutex);
+        pthread_mutex_lock(&mutexForThreadFunc);
 
         if( (tmp=dequeue(&myThreadQue))==NULL ) {
-            pthread_cond_wait(&cond_var, &mutex);
+            pthread_cond_wait(&cond_var, &mutexForThreadFunc);
             // try again
             tmp = dequeue(&myThreadQue);
         }
-        
-        pthread_mutex_unlock(&mutex);
+
+        pthread_mutex_unlock(&mutexForThreadFunc);
         if(tmp!=NULL) {
-            
             int tmpSock = tmp->qSocket;
-
             delThreadNode(&tmp);
-
             child_serverNoThread(tmpSock);
         }
     }
 }
 
+// check if is worker or client
 void *printTry(void *Pnewsock) {
 
     qNodePtr tmp = NULL;
     while(true) {
-        pthread_mutex_lock(&mutex);
+        pthread_mutex_lock(&mutexForThreadFunc);
 
         if( (tmp=dequeue(&myThreadQue))==NULL ) {
-            pthread_cond_wait(&cond_var, &mutex);
+            pthread_cond_wait(&cond_var, &mutexForThreadFunc);
             // try again
             tmp = dequeue(&myThreadQue);
         }
 
-        pthread_mutex_unlock(&mutex);
+        pthread_mutex_unlock(&mutexForThreadFunc);
         if(tmp!=NULL) {
             
-            int tmpSock = tmp->qSocket;
+            if(tmp->identity==ISWORKER) {
+                
+                int tmpSock = tmp->qSocket;
 
-            delThreadNode(&tmp);
+                delThreadNode(&tmp);
 
-            char buf[256] = {0};
-            // read(tmpSock, buf, strlen("geia"));
-            char* readed = receiveMessageSock(tmpSock, buf);
-            printf("Gave %s\n", readed);
-            free(readed);
-            printf("Closing  connection .\n");
+                char buf[256] = {0};
+                char* readed = receiveMessageSock(tmpSock, buf);
+                printf("Gave %s\n", readed);
+                free(readed);
+                printf("Closing  connection .\n");
 
-            // take statistics
-            for( ; ; ) {
+                // take statistics
+                for( ; ; ) {
 
-                char arr[100];
-                char* readed = receiveMessageSock(tmpSock, arr);
-
-                if(strcmp(readed, "OK")==0){
+                    char arr[100];
+                    char* readed = receiveMessageSock(tmpSock, arr);
+                    if(strcmp(readed, "OK")==0){
+                        free(readed);
+                        break;
+                    }
+                    // printStatsFromConcat(readed);
                     free(readed);
-                    break;
+
                 }
 
-                printStatsFromConcat(readed);
-                free(readed);
-
+                sendMessageSock(tmpSock, "Server received statistics.");
+                close(tmpSock);
             }
-            close(tmpSock);
         }
     }
     return NULL;
+}
+
+void Myhandler(int sig, siginfo_t* siginfo, void* buf) {
+    if(sig==SIGINT || sig==SIGQUIT) {
+        printf("Child %d caught SIGINT or SIGQUIT.\n", getpid());
+        MySignalFlagForSIGINT_SIGQUIT=-1;
+    }
+    else if(sig==SIGUSR1) {
+        printf("Child %d caught SIGUSR1.\n", getpid());
+        MySignalFlagForSIGINT_SIGQUIT=-2;
+    }
+}
+
+void ServerHandler(struct sigaction *act, void (*Myhandler)(int, siginfo_t*, void*)) {
+
+    act->sa_handler = (void*)Myhandler;
+    act->sa_sigaction = Myhandler;
+    sigfillset(&act->sa_mask);
+    act->sa_flags = SA_NODEFER | SA_RESTART | SA_SIGINFO;
+    
+    sigaction(SIGUSR1, act, NULL);
+    sigaction(SIGINT, act, NULL);
+    sigaction(SIGQUIT, act, NULL);
+}
+
+
+int setupServer(short port, int backlog) {
+    int sSocket, cSocket, addrSize;
+    SA_IN server_addr;
+
+    check( (sSocket = socket(AF_INET, SOCK_STREAM, 0)), "Failed Socket");
+
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    server_addr.sin_port = htons(port);
+
+    if (bind(sSocket , (SA*)&server_addr , sizeof(server_addr)) < 0) {
+        perror_exit("bind");
+    }
+    
+    /*  Listen  for  connections  */
+    if (listen(sSocket , backlog) < 0) {
+        perror_exit("listen");
+    }
+
+    return sSocket;
 }

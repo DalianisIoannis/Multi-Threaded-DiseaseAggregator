@@ -1,9 +1,5 @@
 #include "../headers/threadQueue.h"
 
-void f() {
-    printf("GIAGIA\n");
-}
-
 threadQueuePtr newQueue() {
     threadQueuePtr tQueue = malloc(sizeof(threadQueue));
 
@@ -12,11 +8,12 @@ threadQueuePtr newQueue() {
     return tQueue;
 }
 
-void enqueue(threadQueuePtr* Queue, int* clientSocket) {
+void enqueue(threadQueuePtr* Queue, int* clientSocket, int WhatWork) {
     qNodePtr newNode = malloc(sizeof(qNode));
 
     newNode->qSocket = *clientSocket;
     newNode->port = NULL;
+    newNode->identity = WhatWork;
     newNode->next = NULL;
 
     if((*Queue)->tail == NULL) {
@@ -53,9 +50,7 @@ void delThreadNode(qNodePtr* myNode) {
     if((*myNode)->port!=NULL) {
         free((*myNode)->port);
     }
-    // if((*myNode)->clientSocket!=NULL) {
-    //     free((*myNode)->clientSocket);
-    // }
+    
     free(*myNode);
 
 }
