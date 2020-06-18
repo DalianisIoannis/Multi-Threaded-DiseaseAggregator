@@ -11,7 +11,7 @@ pthread_mutex_t mutex3 = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond_var = PTHREAD_COND_INITIALIZER;
 
 void* threadFunc(void* arg);
-void *printTry(void *Pnewsock);
+void *handleConnections(void *Pnewsock);
 
 pthread_t *Threadpool = NULL;
 threadQueuePtr myThreadQue = NULL;
@@ -86,7 +86,7 @@ int main(int argc, char **argv) {
     }
 
     for(int i=0; i<numThreads; i++) {
-        pthread_create(&Threadpool[i], NULL, printTry, NULL);
+        pthread_create(&Threadpool[i], NULL, handleConnections, NULL);
     }
 
     int workerSocket = setupServer(statsPort, SERVER_BACKLOG);
@@ -126,6 +126,8 @@ int main(int argc, char **argv) {
                         //     break;
                         // }
 
+                        printf("Accepted worker connection at %d\n", newWorker);
+
                         FD_SET(newWorker, &currentDescriptors);
                         maxfd = returnMaxInt(maxfd, newWorker) + 1;
                         
@@ -142,11 +144,13 @@ int main(int argc, char **argv) {
                             perror_exit("accept");
                         }
 
+                        printf("Accepted client connection at %d\n", newClient);
+
                         FD_SET(newClient, &currentDescriptors);
                         maxfd = returnMaxInt(maxfd, newClient) + 1;
 
                         pthread_mutex_lock(&mutexForArrOfSock);
-                        ArrayOfSocketFunc[newWorker] = ISQUERY;
+                        ArrayOfSocketFunc[newClient] = ISQUERY;
                         pthread_mutex_unlock(&mutexForArrOfSock);
 
                     }
@@ -192,54 +196,6 @@ int main(int argc, char **argv) {
 
     delQueue(&myThreadQue);
 
-
-    //////////////////////////////////////////////////////////////////////////////////////////////////////
-    //////////////////////////////////////////////////////////////////////////////////////////////////////
-    //////////////////////////////////////////////////////////////////////////////////////////////////////
-    // ntoulas capitalize
-    
-    
-    // /*  Reap  dead  children  asynchronously  */
-    // signal(SIGCHLD , sigchld_handler);
-
-    // printf("Listening  for  connections  to port %d\n", statsPort);
-    // while  (1) {
-
-    //     /*  accept  connection  */
-    //     if (( newsock = accept(statSocket, clientptr, &clientlen)) < 0) {
-    //         perror_exit("accept");
-    //     }
-        
-    //     // child_serverNoThread(newsock);
-
-    //     // pthread_t t;
-    //     // int *pclient = malloc(sizeof(int));
-    //     // *pclient = newsock;
-    //     // pthread_create(&t, NULL, child_serverThread, pclient);
-
-    //     int *pclient = malloc(sizeof(int));
-    //     *pclient = newsock;
-    //     pthread_mutex_lock(&mutex);
-
-    //     enqueue(&myThreadQue, pclient);
-    //     pthread_cond_signal(&cond_var);
-        
-    //     pthread_mutex_unlock(&mutex);
-
-    // }
-
-    // pthread_cond_broadcast(&cond_var);
-
-    // for(int i=0; i<numThreads; i++) {
-    //     pthread_join(Threadpool[i], NULL);
-    // }
-
-    // close(statSocket); // should be here?
-    
-    // free(Threadpool);
-
-    // delQueue(&myThreadQue);
-
     free(act);
 
     return 0;
@@ -268,7 +224,7 @@ void* threadFunc(void* arg) {
 }
 
 // check if is worker or client
-void *printTry(void *Pnewsock) {
+void *handleConnections(void *Pnewsock) {
 
     qNodePtr tmp = NULL;
     while(true) {
@@ -310,6 +266,29 @@ void *printTry(void *Pnewsock) {
                 }
 
                 sendMessageSock(tmpSock, "Server received statistics.");
+                close(tmpSock);
+            }
+            else {
+                int tmpSock = tmp->qSocket;
+
+                delThreadNode(&tmp);
+
+                // take random input
+                for( ; ; ) {
+
+                    char arr[100];
+                    char* readed = receiveMessageSock(tmpSock, arr);
+                    printf("Received %s\n", readed);
+                    if(strcmp(readed, "OK")==0){
+                        free(readed);
+                        break;
+                    }
+                    free(readed);
+
+                }
+
+                // sendMessageSock(tmpSock, "Server received statistics.");
+                printf("Closed connection to client!\n");
                 close(tmpSock);
             }
         }

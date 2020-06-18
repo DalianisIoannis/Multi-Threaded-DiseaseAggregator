@@ -20,13 +20,7 @@ int main(int argc, char **argv) {
     }
 
     // struct sockaddr_in servaddr;
-    // int sockfd, n;
-    // int sendbytes;
-    // char sendline[MAXLINE];
-    // char recvline[MAXLINE];
-
-    int port, sock, i;
-    char buf[256];
+    int port, sock;
     struct sockaddr_in server;
     struct sockaddr *serverptr = (struct  sockaddr *)&server;
     struct hostent *rem;
@@ -34,16 +28,9 @@ int main(int argc, char **argv) {
     char* ServerAddress = strdup(argv[8]);
     int ServerPort = atoi(argv[6]);
 
-
-    //////////////////////////////////////////////////////////////////////////////////////////////////////
-    //////////////////////////////////////////////////////////////////////////////////////////////////////
-    //////////////////////////////////////////////////////////////////////////////////////////////////////
-    // ntoulas capitalize
-    // if (argc != 3) {
-    //     printf("Please  give  host  name  and  port  number\n");
-    //     exit (1);
-    // }
-
+    char *inputString = NULL, *buffer = NULL;
+    char *tmp;
+    size_t size = 0;
 
     /*  Create  socket  */
     if ((sock = socket(AF_INET , SOCK_STREAM , 0)) < 0) {
@@ -56,7 +43,6 @@ int main(int argc, char **argv) {
         exit (1);
     }
 
-    // port = atoi(argv [2]); /* Convert  port  number  to  integer */
     port = ServerPort;
     server.sin_family = AF_INET; /*  Internet  domain  */
     memcpy(&server.sin_addr, rem->h_addr, rem->h_length);
@@ -68,23 +54,53 @@ int main(int argc, char **argv) {
     
     printf("Connecting to %d port %d\n", ServerPort, port);
 
-    do {
-        printf("Give  input  string: ");
-        fgets(buf , sizeof(buf), stdin);
-        /*  Read  from  stdin */
-        for(i=0;  buf[i] != '\0'; i++) {
-            /*  For  every  char  *//*  Send i-th  character  */
-            if (write(sock , buf + i, 1) < 0)
-                perror_exit("write");/*  receive i-th  character  transformed  */
-            
-            // if (read(sock , buf + i, 1) < 0)
-                // perror_exit("read");
+    printf("Give  input  string: ");
+
+    while( getline(&buffer, &size, stdin)!=-1 ){
+        
+        if( strcmp(buffer, "\n")!=0 ){
+            inputString = strtok(buffer, "\n");
         }
-        // printf("Received  string: %s", buf);
+        else{
+            free(buffer);
+        }
+
+        if( inputString==NULL ){ tmp = strdup("$$$"); }
+        else{ tmp = strdup(inputString); }
+
+        if(tmp==NULL){
+            printf("String failure.\n");
+            return -1;
+        }
+
+        if(strcmp(tmp, "/exit")==0) {
+            printf("exiting\n");
+            break;
+        }
+        else {
+            if (sendMessageSock(sock , tmp) < 0) {
+                perror_exit("write");/*  receive i-th  character  transformed  */
+            }
+        }
+
+        free(tmp);
+        tmp = NULL;
+        free(inputString);
+        inputString = NULL;
+        buffer = NULL;
+
+        printf("Give  input  string: ");
+
     }
-    while (strcmp(buf , "END\n") != 0);/*  Finish  on "end" */
+    free(tmp);
+    free(inputString);
+    buffer = NULL;
+    
+    sendMessageSock(sock , "OK");
     
     close(sock);/*  Close  socket  and  exit  */
+
+    free(ServerAddress);
 
     return 0;
 }
