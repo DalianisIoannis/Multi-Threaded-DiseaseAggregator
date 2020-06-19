@@ -2,29 +2,6 @@
 #include "../headers/general.h"
 #include "../headers/ServerClient.h"
 
-
-// char* bin2hex(const unsigned char *input, size_t len) {
-//     char* result;
-//     char* hexits = "0123456789ABCDEF";
-
-//     if(input==NULL || len<=0) {
-//         return NULL;
-//     }
-
-//     int resultlength = (len*3)+1;
-
-//     result = malloc(resultlength);
-//     bzero(result, resultlength);
-
-//     for(int i=0; i<len; i++) {
-//         result[i*3] = hexits[input[i] >> 4];
-//         result[(i*3)+1] = hexits[input[i] & 0x0F];
-//         result[(i*3)+2] = ' ';
-//     }
-//     return result;
-// }
-
-
 void err_n_die(const char* fmt, ...) {
     int errno_save = errno;
     va_list ap;
@@ -214,4 +191,75 @@ char* receiveMessageSock(int fd, char* buf) {
     }
 
     return return_buf;
+}
+
+void inputTofirstEmpty(WorkersInfo* ar, char* pidPort, char* address) {
+
+    if( (*ar)->hasAcceptedFirst==false ) {
+        ((*ar)->hasAcceptedFirst) = true;
+    }
+
+    for(int i=0; i<((*ar)->numOfworkers); i++) {
+        if( (((*ar)->myWorkers[i])->hasBeenSet)==false ) {
+            (((*ar)->myWorkers[i])->Ipaddr) = strdup(address);
+            (((*ar)->myWorkers[i])->hasBeenSet) = true;
+            int getPID = atoi(pidPort);
+            (((*ar)->myWorkers[i])->pidOfWorker) = getPID;
+            char* tmpPort = malloc( (strlen("1")+12) );
+            sprintf(tmpPort, "1%d", getPID);
+            (((*ar)->myWorkers[i])->portNum) = atoi(tmpPort);
+            free(tmpPort);
+            break;
+        }
+    }
+    return;
+}
+
+void printWorkerInfo(WorkersInfo ar) {
+
+    if(ar!=NULL) {
+        if(ar->hasAcceptedFirst!=false) {
+            // int numOfWork = ar->numOfworkers;
+            printf("hasBeenMade is %d and numOfworkers %d\n", ar->hasBeenMade, ar->numOfworkers);
+            for(int i=0; i<ar->numOfworkers; i++) {
+                // if( (ar->myWorkers)[i] )
+                printf("For place %d hasBeenSet is %d pidOfWorker is %d and portNum is %d\n", i, (ar->myWorkers)[i]->hasBeenSet, (ar->myWorkers)[i]->pidOfWorker, (ar->myWorkers)[i]->portNum);
+            }
+        }
+    }
+
+}
+
+void connectToallWorkers(WorkersInfo* ar) {
+    if(ar==NULL) {
+        return;
+    }
+
+    for(int i=0; i<((*ar)->numOfworkers); i++) {
+
+        // (((*ar)->myWorkers[i])->serverptr)
+
+        (((*ar)->myWorkers[i])->serverptr) = (struct  sockaddr *)&(((*ar)->myWorkers[i])->server);
+
+        if (( (((*ar)->myWorkers[i])->sock) = socket(AF_INET , SOCK_STREAM , 0)) < 0) {
+            perror_exit("socket");
+        }    
+
+        if (((((*ar)->myWorkers[i])->rem) = gethostbyname((((*ar)->myWorkers[i])->Ipaddr))) == NULL) {
+            herror("gethostbyname");
+            exit (1);
+        }
+
+        (((*ar)->myWorkers[i])->server).sin_family = AF_INET; /*  Internet  domain  */
+        memcpy(&(((*ar)->myWorkers[i])->server).sin_addr, (((*ar)->myWorkers[i])->rem)->h_addr, (((*ar)->myWorkers[i])->rem)->h_length);
+        (((*ar)->myWorkers[i])->server).sin_port = htons((((*ar)->myWorkers[i])->portNum));/*  Server  port  */
+
+        if (connect((((*ar)->myWorkers[i])->sock) , (((*ar)->myWorkers[i])->serverptr) , sizeof((((*ar)->myWorkers[i])->server))) < 0) {
+            perror_exit("connect");
+        }
+
+        // sendMessageSock((((*ar)->myWorkers[i])->sock), "pou");
+
+        close((((*ar)->myWorkers[i])->sock));
+    }
 }

@@ -10,18 +10,18 @@ pthread_mutex_t mutexForArrOfSock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex3 = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond_var = PTHREAD_COND_INITIALIZER;
 
-void* threadFunc(void* arg);
-void *handleConnections(void *Pnewsock);
-
 pthread_t *Threadpool = NULL;
 threadQueuePtr myThreadQue = NULL;
 
 int Termination = 0;
 int Sigkill = 0;
 int MySignalFlagForSIGINT_SIGQUIT=0;
+WorkersInfo myWorkArray;
 
+void* threadFunc(void* arg);
+void *handleConnections(void *Pnewsock);
 int setupServer(short port, int backlog);
-
+void handleQuerries();
 void Myhandler(int sig, siginfo_t* siginfo, void* buf);
 void ServerHandler(struct sigaction *act, void (*Myhandler)(int, siginfo_t*, void*));
 
@@ -42,32 +42,29 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
-    // int statSocket;
-    // SA_IN server_addr;
-    // sigset_t emptSet;
-    // uint8_t buff[MAXLINE+1];
-    // uint8_t recvline[MAXLINE+1];
     int ArrayOfSocketFunc[1024];
     for(int i=0; i<1024; i++) {
         ArrayOfSocketFunc[i] = 0;
     }
-    int sock;
+    myWorkArray = NULL;
     int newWorker, newClient;
     struct sockaddr_in client, worker;
     socklen_t workerlen = 0;
     socklen_t clientlen = 0;
     struct sockaddr *clientPtr = (struct sockaddr*) &client;
     struct sockaddr *workerPtr = (struct sockaddr*) &worker;
-    struct hostent *rem;
+    int queryPort = atoi(argv[2]);
+    int statsPort = atoi(argv[4]);
+    int numThreads = atoi(argv[6]);
+    int bufferSize = atoi(argv[8]);
 
     struct sigaction *act = malloc(sizeof(struct sigaction));
     // ServerHandler(act, Myhandler);
     fd_set readyDescriptors, currentDescriptors;
 
-    int queryPort = atoi(argv[2]);
-    int statsPort = atoi(argv[4]);
-    int numThreads = atoi(argv[6]);
-    int bufferSize = atoi(argv[8]);
+    myWorkArray = malloc(sizeof(workersIdForServer));
+    myWorkArray->hasBeenMade = false;
+    myWorkArray->hasAcceptedFirst = false;
 
     if(queryPort==statsPort) {
         fprintf(stderr, "queryPort and statsPort must be different!\n");
@@ -77,7 +74,7 @@ int main(int argc, char **argv) {
     //////////////////////////////////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////////////
-    // connect to workers
+    // connect
 
     myThreadQue = newQueue();
 
@@ -139,6 +136,10 @@ int main(int argc, char **argv) {
                     }
                     else if(i==clientSocket) {
 
+                        // // // // // // // // // // // // //
+                        connectToallWorkers(&myWorkArray);
+                        // // // // // // // // // // // // //
+
                         /*  accept  connection  */
                         if (( newClient = accept(clientSocket, clientPtr, &clientlen)) < 0) {
                             perror_exit("accept");
@@ -156,25 +157,26 @@ int main(int argc, char **argv) {
                     }
                     else {
 
-                        memset(&worker, 0, sizeof(struct sockaddr_in));
-                        socklen_t sa_len = sizeof(struct sockaddr_in);
-                        int tmpRealPort = getsockname(i, (struct sockaddr *)&worker, &sa_len);
-                        printf("In pid %d returned %d\n", getpid(), tmpRealPort);
-                        char* toNtoa = strdup(inet_ntoa(worker.sin_addr));
-                        printf("In pid %d toNtoa %s\n", getpid(), toNtoa);
-                        int ntoHs = ntohs(worker.sin_port);
-                        printf("In pid %d ntoHs %d\n", getpid(), ntoHs);
+                        // memset(&worker, 0, sizeof(struct sockaddr_in));
+                        // socklen_t sa_len = sizeof(struct sockaddr_in);
+                        // int tmpRealPort = getsockname(i, (struct sockaddr *)&worker, &sa_len);
+                        // printf("In pid %d returned %d\n", getpid(), tmpRealPort);
+                        // char* toNtoa = strdup(inet_ntoa(worker.sin_addr));
+                        // printf("In pid %d toNtoa %s\n", getpid(), toNtoa);
+                        // int ntoHs = ntohs(worker.sin_port);
+                        // printf("In pid %d ntoHs %d\n", getpid(), ntoHs);
+
+                        printf("Dextika client kai to array einai\n");
+                        printWorkerInfo(myWorkArray);
 
                         int *pclient = malloc(sizeof(int));
                         *pclient = i;
                         pthread_mutex_lock(&mutexForThreadFunc);
 
                         enqueue(&myThreadQue, pclient, ArrayOfSocketFunc[i]);
-                        
                         FD_CLR(i, &currentDescriptors);
                         
                         pthread_cond_signal(&cond_var);
-                        
                         pthread_mutex_unlock(&mutexForThreadFunc);
 
                     }
@@ -191,12 +193,17 @@ int main(int argc, char **argv) {
     }
 
     free(Threadpool);
-
-    close(workerSocket); // should be here?
-
+    close(workerSocket);    // should be here?
+    close(clientSocket);    // should be here?
     delQueue(&myThreadQue);
-
     free(act);
+    for(int i=0; i<myWorkArray->numOfworkers; i++) {
+        
+        free(((myWorkArray->myWorkers)[i])->Ipaddr);
+        free( (myWorkArray->myWorkers)[i] );
+    }
+    free(myWorkArray->myWorkers);
+    free(myWorkArray);
 
     return 0;
 }
@@ -246,10 +253,7 @@ void *handleConnections(void *Pnewsock) {
                 delThreadNode(&tmp);
 
                 char buf[256] = {0};
-                char* readed = receiveMessageSock(tmpSock, buf);
-                printf("Gave %s\n", readed);
-                free(readed);
-                printf("Closing  connection .\n");
+                char* readed;
 
                 // take statistics
                 for( ; ; ) {
@@ -257,6 +261,7 @@ void *handleConnections(void *Pnewsock) {
                     char arr[100];
                     char* readed = receiveMessageSock(tmpSock, arr);
                     if(strcmp(readed, "OK")==0){
+                        printf("Received stats\n");
                         free(readed);
                         break;
                     }
@@ -264,13 +269,60 @@ void *handleConnections(void *Pnewsock) {
                     free(readed);
 
                 }
+                printf("OUT OF STATS\n");
+
+                // // receive numWorkers
+                readed = receiveMessageSock(tmpSock, buf);
+                printf("Received after stats %s\n", readed);
+                if(myWorkArray->hasBeenMade==false) {   // first worker
+                    
+                    myWorkArray->hasBeenMade=true;
+                    char* tmpNumWorks = strdup(readed);
+                    myWorkArray->numOfworkers = atoi(readed);
+                    myWorkArray->WorkerPort = malloc((myWorkArray->numOfworkers)*sizeof(int));
+                    
+                    for(int i=0; i<(myWorkArray->numOfworkers); i++) {
+                        (myWorkArray->WorkerPort)[i] = 0;
+                    }
+
+                    myWorkArray->myWorkers = malloc((myWorkArray->numOfworkers)*sizeof(workerStructPtr));
+                    for(int i=0; i<(myWorkArray->numOfworkers); i++) {
+                        ((myWorkArray->myWorkers)[i]) = malloc(sizeof(workerStruct));
+                        ((myWorkArray->myWorkers)[i])->hasBeenSet = false;
+                        ((myWorkArray->myWorkers)[i])->pidOfWorker = -1;
+                        ((myWorkArray->myWorkers)[i])->portNum = -1;
+                    }
+
+                    free(tmpNumWorks);
+                    printf("\nMade size %d\n\n", myWorkArray->numOfworkers);
+                }
+                free(readed);
+
+                // receive port and IPaddress
+                readed = receiveMessageSock(tmpSock, buf);
+                char* givePort = strdup(readed);
+                free(readed);
+
+                readed = receiveMessageSock(tmpSock, buf);
+                char* giveAdr = strdup(readed);
+
+                printf("Received port %s and address %s\n", givePort, giveAdr);
+                inputTofirstEmpty(&myWorkArray, givePort, giveAdr);
+
+                free(giveAdr);
+                free(givePort);
+                free(readed);
+                
+                // int portOfWorker = atoi(readed);
+                // printf("worker has port %d\n", portOfWorker);
+                
 
                 sendMessageSock(tmpSock, "Server received statistics.");
                 close(tmpSock);
             }
-            else {
-                int tmpSock = tmp->qSocket;
+            else {  // ISCLIENT
 
+                int tmpSock = tmp->qSocket;
                 delThreadNode(&tmp);
 
                 // take random input
@@ -283,6 +335,9 @@ void *handleConnections(void *Pnewsock) {
                         free(readed);
                         break;
                     }
+
+                    // void handleQuerries();
+
                     free(readed);
 
                 }
@@ -294,6 +349,10 @@ void *handleConnections(void *Pnewsock) {
         }
     }
     return NULL;
+}
+
+void handleQuerries() {
+    return;
 }
 
 void Myhandler(int sig, siginfo_t* siginfo, void* buf) {
@@ -321,7 +380,7 @@ void ServerHandler(struct sigaction *act, void (*Myhandler)(int, siginfo_t*, voi
 
 
 int setupServer(short port, int backlog) {
-    int sSocket, cSocket, addrSize;
+    int sSocket;
     SA_IN server_addr;
 
     check( (sSocket = socket(AF_INET, SOCK_STREAM, 0)), "Failed Socket");

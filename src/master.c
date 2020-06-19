@@ -31,8 +31,6 @@ int main(int argc, char **argv)
     int serverPort = atoi(argv[8]);
 
     char *input_dir = strdup(argv[10]);
-    DIR* dir = opendir(input_dir);
-    closedir(dir);
 
     workerDataNode* WorkersArr = NULL;
     if ( (WorkersArr = malloc(numWorkers*sizeof(workerDataNode*))) == NULL ) {
@@ -72,7 +70,7 @@ int main(int argc, char **argv)
                 perror("open rfd");
             }
 
-            WorkerRun(input_dir, bufferSize, rfd, wfd);
+            WorkerRun(input_dir, bufferSize, rfd, wfd, numWorkers);
 
             for(int j=0; j < i; j++) {
 
@@ -90,7 +88,7 @@ int main(int argc, char **argv)
             exit(0);
         }
 
-        else {
+        else {  // father
             if ((WorkersArr[i] = makeWorkerArCell(pid, bufferSize)) == NULL)
             {
                 perror("makeWorkerArCell failed\n");
@@ -113,7 +111,7 @@ int main(int argc, char **argv)
 
     sendCountriesToWorkers(WorkersArr, input_dir, numWorkers, bufferSize, countriesListArray);
 
-    FatherQuerries(WorkersArr, numWorkers, bufferSize, countriesListArray);
+    // FatherQuerries(WorkersArr, numWorkers, bufferSize, countriesListArray);
 
     for(int i=0; i < numWorkers; i++) {
         wait(NULL);

@@ -28,9 +28,6 @@ clean:
 	rm -f ./pipeFiles/reader*
 	rm -f ./pipeFiles/writer*
 
-
-all: $(EXECUTABLE)
-
 valgrind:
 	valgrind --track-origins=yes --trace-children=yes --leak-check=full ./master -w 5 -b 32 -s "127.0.0.1" -p 9003 -i "./input_dir/"
 
@@ -45,8 +42,12 @@ tcp:
 	$(CC) $(CFLAGS) $(ODIR)/whoClient.o $(ODIR)/ServerClient.o $(ODIR)/threadQueue.o -o whoClient $(LDFLAGS)
 	$(CC) $(CFLAGS) $(ODIR)/whoServer.o $(ODIR)/ServerClient.o $(ODIR)/statistics.o $(ODIR)/threadQueue.o $(ODIR)/general.o -o whoServer $(LDFLAGS)
 
+all:
+	make
+	make tcp
+	
 Server:
 	valgrind --track-origins=yes --trace-children=yes --leak-check=full ./whoServer -q 9002 -s 9003 -w 5 -b 32
 
 Client:
-	valgrind --track-origins=yes --trace-children=yes --leak-check=full ./whoClient -q queryFile -w numThreads -sp 9002 -sip "127.0.0.1"
+	valgrind --track-origins=yes --trace-children=yes --leak-check=full ./whoClient -q "./queryFolder/queryFile.txt" -w numThreads -sp 9002 -sip "127.0.0.1"

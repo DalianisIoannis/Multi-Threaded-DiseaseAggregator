@@ -32,14 +32,43 @@
 #define SOCKETERROR (-1)
 #define SERVER_BACKLOG 10 // num of connections accepted
 
+
+typedef struct workerStruct {
+    bool hasBeenSet;
+    int pidOfWorker;
+    int portNum;
+    char* Ipaddr;
+    bool isFull;
+    
+    int sock;
+    struct sockaddr_in server;
+    struct sockaddr *serverptr;// = (struct  sockaddr *)&server;
+    struct hostent *rem;
+
+} workerStruct;
+typedef workerStruct* workerStructPtr;
+
+
+typedef struct workersIdForServer {
+    bool hasAcceptedFirst;
+    bool hasBeenMade;
+    int numOfworkers;
+    int* WorkerPort;    // port for every worker to send messages
+    workerStructPtr* myWorkers;
+} workersIdForServer;
+typedef workersIdForServer* WorkersInfo;
+
+
 // #define SA struct sockaddr
 typedef struct sockaddr SA;
 typedef struct sockaddr_in SA_IN;
 
 void handleConnection(int client_socket);
+void inputTofirstEmpty(WorkersInfo* ar, char* pidPort, char* address);
+void printWorkerInfo(WorkersInfo ar);
+void connectToallWorkers(WorkersInfo* ar);
 
 int check(int exp, const char *msg);
-char* bin2hex(const unsigned char *input, size_t len);
 void err_n_die(const char* fmt, ...);
 
 void child_serverNoThread(int newsock);
