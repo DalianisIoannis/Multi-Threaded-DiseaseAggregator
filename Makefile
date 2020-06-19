@@ -29,7 +29,7 @@ clean:
 	rm -f ./pipeFiles/writer*
 
 valgrind:
-	valgrind --track-origins=yes --trace-children=yes --leak-check=full ./master -w 5 -b 32 -s "127.0.0.1" -p 9003 -i "./input_dir/"
+	valgrind --track-origins=yes --trace-children=yes --leak-check=full --show-leak-kinds=all ./master -w 5 -b 32 -s "127.0.0.1" -p 9003 -i "./input_dir/"
 
 run:
 	./master -w 5 -b 32 -s 10 -p 15 -i "./input_dir/"	
@@ -39,15 +39,16 @@ tcp:
 	$(CC) $(CFLAGS) -c $(SDIR)/ServerClient.c -o $(ODIR)/ServerClient.o $(LDFLAGS)
 	$(CC) $(CFLAGS) -c $(SDIR)/whoServer.c -o $(ODIR)/whoServer.o $(LDFLAGS)
 	$(CC) $(CFLAGS) -c $(SDIR)/whoClient.c -o $(ODIR)/whoClient.o $(LDFLAGS)
-	$(CC) $(CFLAGS) $(ODIR)/whoClient.o $(ODIR)/ServerClient.o $(ODIR)/threadQueue.o -o whoClient $(LDFLAGS)
-	$(CC) $(CFLAGS) $(ODIR)/whoServer.o $(ODIR)/ServerClient.o $(ODIR)/statistics.o $(ODIR)/threadQueue.o $(ODIR)/general.o -o whoServer $(LDFLAGS)
+	$(CC) $(CFLAGS) $(ODIR)/countryList.o $(ODIR)/whoClient.o $(ODIR)/ServerClient.o $(ODIR)/threadQueue.o -o whoClient $(LDFLAGS)
+	$(CC) $(CFLAGS) $(ODIR)/countryList.o $(ODIR)/whoServer.o $(ODIR)/ServerClient.o $(ODIR)/statistics.o $(ODIR)/threadQueue.o $(ODIR)/general.o -o whoServer $(LDFLAGS)
 
 all:
 	make
 	make tcp
 	
 Server:
-	valgrind --track-origins=yes --trace-children=yes --leak-check=full ./whoServer -q 9002 -s 9003 -w 5 -b 32
+	valgrind --track-origins=yes --trace-children=yes --leak-check=full ./whoServer -q 9002 -s 9003 -w 3 -b 32
+	# --show-leak-kinds=all
 
 Client:
-	valgrind --track-origins=yes --trace-children=yes --leak-check=full ./whoClient -q "./queryFolder/queryFile.txt" -w numThreads -sp 9002 -sip "127.0.0.1"
+	valgrind --track-origins=yes --trace-children=yes --leak-check=full --show-leak-kinds=all ./whoClient -q "./queryFolder/queryFile.txt" -w numThreads -sp 9002 -sip "127.0.0.1"

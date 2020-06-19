@@ -25,8 +25,9 @@ int main(int argc, char **argv) {
     struct hostent *rem;
     char* ServerAddress = strdup(argv[8]);
     int ServerPort = atoi(argv[6]);
-    char *inputString = NULL, *buffer = NULL;
-    char *tmp;
+    // char *inputString = NULL;
+    // char *tmp;
+    char *buffer = NULL;
     size_t size = 0;
     char *queryFile = strdup(argv[2]);
     FILE* fp = fopen(queryFile, "r");
@@ -53,40 +54,6 @@ int main(int argc, char **argv) {
         perror_exit("connect");
     
     printf("Connecting to %d port %d\n", ServerPort, port);
-
-    // printf("Give  input  string: ");
-    // while( getline(&buffer, &size, stdin)!=-1 ){
-    //     if( strcmp(buffer, "\n")!=0 ){
-    //         inputString = strtok(buffer, "\n");
-    //     }
-    //     else{
-    //         free(buffer);
-    //     }
-    //     if( inputString==NULL ){ tmp = strdup("$$$"); }
-    //     else{ tmp = strdup(inputString); }
-    //     if(tmp==NULL){
-    //         printf("String failure.\n");
-    //         return -1;
-    //     }
-    //     if(strcmp(tmp, "/exit")==0) {
-    //         printf("exiting\n");
-    //         break;
-    //     }
-    //     else {
-    //         // if (sendMessageSock(sock , tmp) < 0) {
-    //         //     perror_exit("write");/*  receive i-th  character  transformed  */
-    //         // }
-    //     }
-    //     free(tmp);
-    //     tmp = NULL;
-    //     free(inputString);
-    //     inputString = NULL;
-    //     buffer = NULL;
-    //     printf("Give  input  string: ");
-    // }
-    // free(tmp);
-    // free(inputString);
-    // buffer = NULL;
 
     // read querries
     while( getline(&buffer, &size, fp) >=0 ) {

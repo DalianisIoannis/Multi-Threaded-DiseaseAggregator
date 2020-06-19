@@ -6,6 +6,7 @@
 #include "./statistics.h"
 #include "./pipes.h"
 #include "./ServerClient.h"
+#include "./HashTable.h"
 
 typedef struct workerData{
     int totalCountries;
@@ -36,4 +37,4 @@ workerDataNode makeWorkerArCell(pid_t, int);
 void emptyworkerNode(workerDataNode*);
 int WorkerRun(char*, int, int, int, int);
 int inputPatientsToStructures(char*, Linked_List*, char* date, char* country, StatisticsList*, Linked_List *);
-// void 
+void handleWorkerQuerries(int sock, HashTable HT_disease, HashTable HT_country);

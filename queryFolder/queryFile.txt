@@ -1,2 +1,17 @@
-patata me auga
-i omada mi paizei sklira
+/listCountries
+/diseaseFrequency Cancer 21-12-1933 31-09-2020 Greece
+/diseaseFrequency Cancer 21-12-1933 31-09-2020
+/diseaseFrequency Mpampis 21-12-1933 31-09-2020
+/topk-AgeRanges 3 Sweden Cancer 21-12-1933 31-09-2020
+/topk-AgeRanges 3 Greece Cancer 21-12-1933 31-09-2020
+/topk-AgeRanges 3 Sweden Cancer 11-07-1910 31-09-2020
+/topk-AgeRanges 1 Sweden Cancer 11-07-1910 31-09-2020
+/topk-AgeRanges 4 Sweden Cancer 11-07-1910 31-09-2020
+/topk-AgeRanges 0 Sweden Cancer 11-07-1910 31-09-2020
+/searchPatientRecord 23
+/searchPatientRecord 43
+/numPatientAdmissions Cancer 11-07-1910 31-09-2020
+/numPatientAdmissions Cancer 11-07-1910 31-09-2020 Congo
+/numPatientDischarges Cancer 11-07-1910 31-09-2020
+/numPatientDischarges Ebola 11-07-1910 31-09-2020 Greece
+/numPatientDischarges Cancer 11-07-1910 31-09-2020 Greece

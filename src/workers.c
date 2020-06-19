@@ -124,7 +124,6 @@ int WorkerRun(char* inDir, int bufferSize, int rfd, int wfd, int numWorkers){
             break;
         }
         
-        // addCountryListNode(&(node->PIDcountries), readed);
         addCountryListNode(&(cL), readed);
 
         free(readed);
@@ -306,6 +305,17 @@ int WorkerRun(char* inDir, int bufferSize, int rfd, int wfd, int numWorkers){
     // send address
     sendMessageSock(sock, Ipaddres);
 
+    // send countries of worker
+    // printCountryList(cL);
+    countrylistNode tmpSenderCountry = cL->front;
+    while(tmpSenderCountry!=NULL){
+        // printf("\tCountry %s", tmpSenderCountry->country);
+        sendMessageSock(sock, tmpSenderCountry->country);
+        tmpSenderCountry = tmpSenderCountry->next;
+        // printf("\n");
+    }
+    sendMessageSock(sock, "OK");
+
     // receive message from server
     readed = receiveMessageSock(sock, arr);
     printf("%s\n", readed);
@@ -323,6 +333,9 @@ int WorkerRun(char* inDir, int bufferSize, int rfd, int wfd, int numWorkers){
     if (( newCon = accept(conToServer, workerPtr, &workerlen)) < 0) {
         perror_exit("accept");
     }
+
+    handleWorkerQuerries(newCon, HT_disease, HT_country);
+
     close(newCon);
     close(conToServer);
     printf("Accepted worker connection at child %d\n", getpid());
@@ -669,4 +682,101 @@ int SetupServer(short port, int backlog) {
     }
 
     return sSocket;
+}
+
+void handleWorkerQuerries(int sock, HashTable HT_disease, HashTable HT_country) {
+
+    for( ; ; ) {
+
+        char arr[100];
+        char* readed = receiveMessageSock(sock, arr);
+        if(strcmp(readed, "ENDOFQUERRIES")==0){
+            printf("Received ENDOFQUERRIES\n");
+            free(readed);
+            break;
+        }
+
+        printf("From server received %s at pid %d\n", readed, getpid());
+        
+        // check what received
+        char* instruct = strtok(readed," ");
+        char* ind1 = strtok(NULL," ");
+        char* ind2 = strtok(NULL," ");
+        char* ind3 = strtok(NULL," ");
+        char* ind4 = strtok(NULL," ");
+        char* ind5 = strtok(NULL," ");
+
+        if( strcmp(instruct, "/diseaseFrequency")==0 ){ // diseaseFrequency virusName date1 date2 [country]
+
+            if( ind4==NULL ){ // didn't give country
+                
+                int res = diseaseFrequencyNoCountry(HT_disease, ind1, ind2, ind3);
+                char* newInt = malloc(12);
+                sprintf(newInt, "%d", res);
+                
+                sendMessageSock(sock, newInt);
+                
+                printf("Result is %s\n", newInt);
+                free(newInt);
+
+            }
+            else{   // gave country
+
+                printf("ind1 is %s ind4 %s ind2 %s ind3 %s\n", ind1, ind4, ind2, ind3 );
+
+                ind4 = strtok(ind4, "\n");
+
+                int res = diseaseFrequencyCountry(HT_country, ind1, ind4, ind2, ind3);
+                char* newInt = malloc(12);
+                sprintf(newInt, "%d", res);
+
+                sendMessageSock(sock, newInt);
+                
+                printf("Result is %s\n", newInt);
+                free(newInt);
+
+            }
+
+        }
+        else if(strcmp(instruct, "/topk-AgeRanges")==0) {
+            if( ind5==NULL ){
+                printf("Need to provide proper variables.\n");
+                sendMessageSock(sock, "WRONG");
+            }
+            else {
+                
+                ind4 = strtok(ind4, "\n");
+
+                char *returned = topkAgeRanges(HT_country, ind1, ind2, ind3, ind4, ind5);
+
+                if(returned!=NULL) {
+                    // sendMessage(wfd, returned, bufferSize);
+                    sendMessageSock(sock, returned);
+                }
+                else {
+                    // sendMessage(wfd, "WRONG", bufferSize);
+                    sendMessageSock(sock, "WRONG");
+                }
+
+                free(returned);
+                
+            }
+        }
+        else if(strcmp(instruct, "/searchPatientRecord")==0) {
+
+            // char* receive = returnPatientifExists(ListOfPatients, ind1);
+            // if(receive!=NULL) {
+            //     sendMessage(wfd, receive, bufferSize);
+            // }
+            // else {
+            //     sendMessage(wfd, "WRONG", bufferSize);
+            // }
+            // free(receive);
+
+        }
+        
+        free(readed);
+
+    }
+    printf("OUT OF ENDOFQUERRIES\n");
 }

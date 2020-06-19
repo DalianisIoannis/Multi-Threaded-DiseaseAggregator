@@ -7,7 +7,7 @@
 
 pthread_mutex_t mutexForThreadFunc = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutexForArrOfSock = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t mutex3 = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutexForMakingWorkAr = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond_var = PTHREAD_COND_INITIALIZER;
 
 pthread_t *Threadpool = NULL;
@@ -18,10 +18,9 @@ int Sigkill = 0;
 int MySignalFlagForSIGINT_SIGQUIT=0;
 WorkersInfo myWorkArray;
 
-void* threadFunc(void* arg);
 void *handleConnections(void *Pnewsock);
 int setupServer(short port, int backlog);
-void handleQuerries();
+void handleQuerries(char* querry);
 void Myhandler(int sig, siginfo_t* siginfo, void* buf);
 void ServerHandler(struct sigaction *act, void (*Myhandler)(int, siginfo_t*, void*));
 
@@ -136,10 +135,6 @@ int main(int argc, char **argv) {
                     }
                     else if(i==clientSocket) {
 
-                        // // // // // // // // // // // // //
-                        connectToallWorkers(&myWorkArray);
-                        // // // // // // // // // // // // //
-
                         /*  accept  connection  */
                         if (( newClient = accept(clientSocket, clientPtr, &clientlen)) < 0) {
                             perror_exit("accept");
@@ -166,8 +161,8 @@ int main(int argc, char **argv) {
                         // int ntoHs = ntohs(worker.sin_port);
                         // printf("In pid %d ntoHs %d\n", getpid(), ntoHs);
 
-                        printf("Dextika client kai to array einai\n");
-                        printWorkerInfo(myWorkArray);
+                        // printf("Dextika client kai to array einai\n");
+                        // printWorkerInfo(myWorkArray);
 
                         int *pclient = malloc(sizeof(int));
                         *pclient = i;
@@ -199,6 +194,8 @@ int main(int argc, char **argv) {
     free(act);
     for(int i=0; i<myWorkArray->numOfworkers; i++) {
         
+        emptycountryList(&(((myWorkArray->myWorkers)[i])->countriesOfWorker));
+        free(((myWorkArray->myWorkers)[i])->countriesOfWorker);
         free(((myWorkArray->myWorkers)[i])->Ipaddr);
         free( (myWorkArray->myWorkers)[i] );
     }
@@ -208,27 +205,6 @@ int main(int argc, char **argv) {
     return 0;
 }
 
-
-void* threadFunc(void* arg) {
-
-    qNodePtr tmp = NULL;
-    while(true) {
-        pthread_mutex_lock(&mutexForThreadFunc);
-
-        if( (tmp=dequeue(&myThreadQue))==NULL ) {
-            pthread_cond_wait(&cond_var, &mutexForThreadFunc);
-            // try again
-            tmp = dequeue(&myThreadQue);
-        }
-
-        pthread_mutex_unlock(&mutexForThreadFunc);
-        if(tmp!=NULL) {
-            int tmpSock = tmp->qSocket;
-            delThreadNode(&tmp);
-            child_serverNoThread(tmpSock);
-        }
-    }
-}
 
 // check if is worker or client
 void *handleConnections(void *Pnewsock) {
@@ -274,6 +250,8 @@ void *handleConnections(void *Pnewsock) {
                 // // receive numWorkers
                 readed = receiveMessageSock(tmpSock, buf);
                 printf("Received after stats %s\n", readed);
+
+                pthread_mutex_lock(&mutexForMakingWorkAr);
                 if(myWorkArray->hasBeenMade==false) {   // first worker
                     
                     myWorkArray->hasBeenMade=true;
@@ -291,6 +269,7 @@ void *handleConnections(void *Pnewsock) {
                         ((myWorkArray->myWorkers)[i])->hasBeenSet = false;
                         ((myWorkArray->myWorkers)[i])->pidOfWorker = -1;
                         ((myWorkArray->myWorkers)[i])->portNum = -1;
+                        ((myWorkArray->myWorkers)[i])->countriesOfWorker = initcountryList();
                     }
 
                     free(tmpNumWorks);
@@ -298,6 +277,7 @@ void *handleConnections(void *Pnewsock) {
                 }
                 free(readed);
 
+                pthread_mutex_unlock(&mutexForMakingWorkAr);
                 // receive port and IPaddress
                 readed = receiveMessageSock(tmpSock, buf);
                 char* givePort = strdup(readed);
@@ -307,15 +287,11 @@ void *handleConnections(void *Pnewsock) {
                 char* giveAdr = strdup(readed);
 
                 printf("Received port %s and address %s\n", givePort, giveAdr);
-                inputTofirstEmpty(&myWorkArray, givePort, giveAdr);
+                inputTofirstEmpty(&myWorkArray, givePort, giveAdr, tmpSock);
 
                 free(giveAdr);
                 free(givePort);
-                free(readed);
-                
-                // int portOfWorker = atoi(readed);
-                // printf("worker has port %d\n", portOfWorker);
-                
+                free(readed);          
 
                 sendMessageSock(tmpSock, "Server received statistics.");
                 close(tmpSock);
@@ -325,12 +301,12 @@ void *handleConnections(void *Pnewsock) {
                 int tmpSock = tmp->qSocket;
                 delThreadNode(&tmp);
 
+                connectToallWorkers(&myWorkArray);
                 // take random input
                 for( ; ; ) {
 
                     char arr[100];
                     char* readed = receiveMessageSock(tmpSock, arr);
-                    printf("Received %s\n", readed);
                     if(strcmp(readed, "OK")==0){
                         free(readed);
                         break;
@@ -338,10 +314,15 @@ void *handleConnections(void *Pnewsock) {
 
                     // void handleQuerries();
 
+                    printf("Received querry from client %s\n", readed);
+                    
+                    handleQuerries(readed);
+                    
                     free(readed);
 
                 }
 
+                FinishallWorkers(&myWorkArray);
                 // sendMessageSock(tmpSock, "Server received statistics.");
                 printf("Closed connection to client!\n");
                 close(tmpSock);
@@ -351,7 +332,58 @@ void *handleConnections(void *Pnewsock) {
     return NULL;
 }
 
-void handleQuerries() {
+void handleQuerries(char* querry) {
+
+    char* firstQ = strdup(querry);
+
+    char* instruct = strtok(querry," ");
+    char* ind1 = strtok(NULL," ");
+    char* ind2 = strtok(NULL," ");
+    char* ind3 = strtok(NULL," ");
+    char* ind4 = strtok(NULL," ");
+    char* ind5 = strtok(NULL," ");
+
+    if( strcmp(instruct, "/diseaseFrequency")==0 ){ // diseaseFrequency virusName date1 date2 [country]
+
+        if( ind4==NULL ){ // didn't give country
+
+            sendMsgToAllWorkers(&myWorkArray, firstQ);
+
+        }
+        else{
+
+            sendMsgToAllWorkers(&myWorkArray, firstQ);
+
+        }
+    }
+    else if(strcmp(instruct, "/topk-AgeRanges")==0) {
+        if( ind5==NULL ){
+            printf("Need to provide proper variables.\n");
+            // sendMessage(wfd, "WRONG", bufferSize);
+        }
+        else {
+
+            sendMsgToAllWorkers(&myWorkArray, firstQ);
+
+        }
+    }
+    else if(strcmp(instruct, "/searchPatientRecord")==0) {
+
+        // char* receive = returnPatientifExists(ListOfPatients, ind1);
+        // if(receive!=NULL) {
+        //     sendMessage(wfd, receive, bufferSize);
+        // }
+        // else {
+        //     sendMessage(wfd, "WRONG", bufferSize);
+        // }
+        // free(receive);
+
+        // sendMsgToAllWorkers(&myWorkArray, firstQ);
+
+    }
+
+    free(firstQ);
+    
     return;
 }
 

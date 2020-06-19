@@ -1,6 +1,7 @@
 #include "../headers/pipes.h"
 #include "../headers/general.h"
 #include "../headers/ServerClient.h"
+#include "../headers/countryList.h"
 
 void err_n_die(const char* fmt, ...) {
     int errno_save = errno;
@@ -18,7 +19,6 @@ void err_n_die(const char* fmt, ...) {
     }
     
     va_end(ap);
-
     exit(1);
 }
 
@@ -32,95 +32,8 @@ int check(int exp, const char* msg) {
 }
 
 
-void handleConnection(int client_socket) {
-    char buffer[BUFSIZE];
-    size_t bytes_read;
-    int msgsize = 0;
-    char actualpath[_PC_PATH_MAX+1];
+//     fflush(stdout);
 
-    while((bytes_read = read(client_socket, buffer+msgsize, sizeof(buffer)-msgsize-1)) > 0) {
-        msgsize += bytes_read;
-        if(msgsize>BUFSIZE-1 || buffer[msgsize-1] == '\n') {
-            break;
-        }
-    }
-
-    check(bytes_read, "recv error.\n");
-
-    buffer[msgsize-1] = 0;
-
-    printf("Request: %s\n", buffer);
-
-    fflush(stdout);
-
-    if(realpath(buffer, actualpath) == NULL) {
-        printf("ERROR WITH PATH: %s\n", buffer);
-        close(client_socket);
-        return;
-    }
-
-    FILE *fp = fopen(actualpath, "r");
-    if(fp==NULL) {
-        printf("ERROR WITH OPEN: %s\n", buffer);
-        close(client_socket);
-        return;
-    }
-
-    while( (bytes_read = fread(buffer, 1, BUFSIZE, fp)) > 0) {
-        printf("sending %zu bytes\n", bytes_read);
-        write(client_socket, buffer, bytes_read);
-    }
-
-    close(client_socket);
-    fclose(fp);
-
-    printf("Closing connection\n");
-}
-
-
-void child_serverNoThread(int newsock) {
-    char  buf[1];
-    while(read(newsock , buf , 1) > 0) {
-        /*  Receive  1 char  */
-        
-        putchar(buf [0]);
-        /*  Print  received  char  */
-        /*  Capitalize  character  */
-        buf[0] = toupper(buf [0]);
-        
-        /*  Reply  */
-        if (write(newsock , buf , 1) < 0) {
-            perror_exit("write");
-        }
-    }
-    printf("Closing  connection .\n");
-    close(newsock);
-    /*  Close  socket  */
-}
-
-
-void *child_serverThread(void *Pnewsock) {
-    int newsock = *((int*)Pnewsock);
-    free(Pnewsock);
-    char  buf[1];
-    while(read(newsock , buf , 1) > 0) {
-        /*  Receive  1 char  */
-        
-        putchar(buf [0]);
-        /*  Print  received  char  */
-        /*  Capitalize  character  */
-        buf[0] = toupper(buf [0]);
-        
-        /*  Reply  */
-        if (write(newsock , buf , 1) < 0) {
-            perror_exit("write");
-        }
-    }
-    printf("Closing  connection .\n");
-    close(newsock);
-    /*  Close  socket  */
-    return NULL;
-}
 
 /*  Wait  for  all  dead  child  processes  */
 void  sigchld_handler (int  sig) {
@@ -193,8 +106,9 @@ char* receiveMessageSock(int fd, char* buf) {
     return return_buf;
 }
 
-void inputTofirstEmpty(WorkersInfo* ar, char* pidPort, char* address) {
+void inputTofirstEmpty(WorkersInfo* ar, char* pidPort, char* address, int port) {
 
+    char arr[1024];
     if( (*ar)->hasAcceptedFirst==false ) {
         ((*ar)->hasAcceptedFirst) = true;
     }
@@ -209,6 +123,23 @@ void inputTofirstEmpty(WorkersInfo* ar, char* pidPort, char* address) {
             sprintf(tmpPort, "1%d", getPID);
             (((*ar)->myWorkers[i])->portNum) = atoi(tmpPort);
             free(tmpPort);
+
+            // accept countries from workers
+            for( ; ; ){ // read countries
+        
+                char *readed = receiveMessageSock(port, arr);
+
+                if(strcmp(readed, "OK")==0){
+                    free(readed);
+                    break;
+                }
+                
+                printf("Received %s\n", readed);
+                addCountryListNode(&((((*ar)->myWorkers[i])->countriesOfWorker)), readed);
+
+                free(readed);
+            }
+
             break;
         }
     }
@@ -237,8 +168,6 @@ void connectToallWorkers(WorkersInfo* ar) {
 
     for(int i=0; i<((*ar)->numOfworkers); i++) {
 
-        // (((*ar)->myWorkers[i])->serverptr)
-
         (((*ar)->myWorkers[i])->serverptr) = (struct  sockaddr *)&(((*ar)->myWorkers[i])->server);
 
         if (( (((*ar)->myWorkers[i])->sock) = socket(AF_INET , SOCK_STREAM , 0)) < 0) {
@@ -258,7 +187,36 @@ void connectToallWorkers(WorkersInfo* ar) {
             perror_exit("connect");
         }
 
-        // sendMessageSock((((*ar)->myWorkers[i])->sock), "pou");
+    }
+}
+
+void sendMsgToAllWorkers(WorkersInfo* ar, char* msg) {
+
+    char arr[1024];
+
+    if(ar==NULL) {
+        return;
+    }
+
+    for(int i=0; i<((*ar)->numOfworkers); i++) {
+
+        sendMessageSock((((*ar)->myWorkers[i])->sock), msg);
+
+        char* readed = receiveMessageSock((((*ar)->myWorkers[i])->sock), arr);
+        printf("From Master to Server %s\n", readed);
+        free(readed);
+
+    }
+}
+
+void FinishallWorkers(WorkersInfo* ar) {
+    if(ar==NULL) {
+        return;
+    }
+
+    for(int i=0; i<((*ar)->numOfworkers); i++) {
+
+        sendMessageSock((((*ar)->myWorkers[i])->sock), "ENDOFQUERRIES");
 
         close((((*ar)->myWorkers[i])->sock));
     }

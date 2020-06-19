@@ -21,6 +21,7 @@
 
 #include "./threadQueue.h"
 #include "./statistics.h"
+#include "./countryList.h"
 
 // #define SERVER_PORT 18000
 #define SERVER_PORT 8989
@@ -39,7 +40,8 @@ typedef struct workerStruct {
     int portNum;
     char* Ipaddr;
     bool isFull;
-    
+    CountryList countriesOfWorker;
+
     int sock;
     struct sockaddr_in server;
     struct sockaddr *serverptr;// = (struct  sockaddr *)&server;
@@ -64,8 +66,10 @@ typedef struct sockaddr SA;
 typedef struct sockaddr_in SA_IN;
 
 void handleConnection(int client_socket);
-void inputTofirstEmpty(WorkersInfo* ar, char* pidPort, char* address);
+void inputTofirstEmpty(WorkersInfo* ar, char* pidPort, char* address, int port);
 void printWorkerInfo(WorkersInfo ar);
+void FinishallWorkers(WorkersInfo* ar);
+void sendMsgToAllWorkers(WorkersInfo* ar, char* msg);
 void connectToallWorkers(WorkersInfo* ar);
 
 int check(int exp, const char *msg);
