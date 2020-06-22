@@ -10,6 +10,8 @@ pthread_mutex_t mtx;
 pthread_cond_t cond_nonempty;
 pthread_cond_t cond_nonfull;
 
+int totalInserts;
+
 typedef struct qNode {
 
     int *clientSocket;
@@ -21,20 +23,11 @@ typedef struct qNode {
 } qNode;
 typedef qNode* qNodePtr;
 
-
-// typedef struct {
-//     int lenngth;
-//     int bufferSize;
-//     qNodePtr head;
-//     qNodePtr tail;
-// } threadQueue;
-// typedef threadQueue* threadQueuePtr;
-
 typedef struct {
     int lenngth;
     int bufferSize;
 
-    qNodePtr* threadAr;
+    qNodePtr* threadAr; // bufferSize
     int start;
     int end;
     int count;
@@ -50,10 +43,3 @@ void            enqueue(threadQueuePtr* Queue, int* clientSocket, int WhatWork);
 void            delQueue(threadQueuePtr* Queue);
 qNodePtr        dequeue(threadQueuePtr* Queue);
 void            delThreadNode(qNodePtr* myNode);
-
-// void initialize(threadQueuePtr qq, int buff) {
-//     qq->start = 0;
-//     qq->end = -1;
-//     qq->count = 0;
-//     qq->bufferSize = buff;
-// }

@@ -3,26 +3,6 @@
 #include "../headers/ServerClient.h"
 #include "../headers/countryList.h"
 
-void err_n_die(const char* fmt, ...) {
-    int errno_save = errno;
-    va_list ap;
-
-    va_start(ap, fmt);
-    vfprintf(stdout, fmt, ap);
-    fprintf(stdout, "\n");
-    fflush(stdout);
-
-    if(errno_save!=0) {
-        fprintf(stdout, "(errno = %d) : %s\n", errno_save, strerror(errno_save));
-        fprintf(stdout, "\n");
-        fflush(stdout);
-    }
-    
-    va_end(ap);
-    exit(1);
-}
-
-
 int check(int exp, const char* msg) {
     if(exp == SOCKETERROR) {
         perror(msg);
@@ -31,21 +11,10 @@ int check(int exp, const char* msg) {
     return exp;
 }
 
-
-//     fflush(stdout);
-
-
-/*  Wait  for  all  dead  child  processes  */
-void  sigchld_handler (int  sig) {
-    while (waitpid(-1, NULL , WNOHANG) > 0);
-}
-
-
 void  perror_exit(char *message) {
     perror(message);
     exit(EXIT_FAILURE);
 }
-
 
 int sendMessageSock(int fd, char* buf) {
 
@@ -223,13 +192,9 @@ void FinishallWorkers(WorkersInfo* ar) {
 void sendToworkersFortopk_AgeRanges(WorkersInfo* ar, char* msg) {
     char arr[1024];
     char* dupString = strdup(msg);
-    // char* instruct = strtok(dupString," ");
-    // char* ind1 = strtok(NULL," ");
-    // char* ind2 = strtok(NULL," ");
     char* ind2 = strtok(dupString," ");
     ind2 = strtok(NULL," ");
     ind2 = strtok(NULL," ");
-    // char* ind3 = strtok(NULL," ");
     char* ind4 = strtok(NULL," ");
     ind4 = strtok(ind4,"\n");
     ind4 = strtok(ind4,"\n");
@@ -240,7 +205,6 @@ void sendToworkersFortopk_AgeRanges(WorkersInfo* ar, char* msg) {
         
         sendMessageSock((*ar)->myWorkers[position]->sock, msg);
 
-        // char* readed = receiveMessage(WorkersArr[position]->fdRead, arr, bufferSize);
         char* readed = receiveMessageSock((*ar)->myWorkers[position]->sock, arr);
         if( strcmp(readed, "WRONG")!=0 ) {
             printf("%s\n", readed);
@@ -260,11 +224,9 @@ void sendToworkersForsearchPatientRecord(WorkersInfo* ar, char* msg) {
 
     for(int i=0; i<((*ar)->numOfworkers); i++) {
                     
-        // sendMessage(WorkersArr[i]->fdWrite, tmp, bufferSize);
         sendMessageSock((*ar)->myWorkers[i]->sock, msg);
         
         char arr[1024];
-        // char* readed = receiveMessage(WorkersArr[i]->fdRead, arr, bufferSize);
         char* readed = receiveMessageSock((*ar)->myWorkers[i]->sock, arr);
         if( strcmp(readed, "WRONG")!=0 ) {
             printf("from child: %s\n", readed);
@@ -276,13 +238,7 @@ void sendToworkersForsearchPatientRecord(WorkersInfo* ar, char* msg) {
 
 void sendToworkersFornumPatientDischarges(WorkersInfo* ar, char* msg) {
 
-    // char arr[1024];
     char* dupString = strdup(msg);
-    // char* instruct = strtok(dupString," ");
-    // char* ind1 = strtok(NULL," ");
-    // char* ind2 = strtok(NULL," ");
-    // char* ind3 = strtok(NULL," ");
-    // char* ind4 = strtok(NULL," ");
     char* ind4 = strtok(dupString," ");
     ind4 = strtok(NULL," ");
     ind4 = strtok(NULL," ");
@@ -336,11 +292,8 @@ void sendToworkersFornumPatientDischarges(WorkersInfo* ar, char* msg) {
 
 void sendToworkersFordiseaseFrequency(WorkersInfo* ar, char* msg) {
 
-    // char arr[1024];
     char* dupString = strdup(msg);
-    // char* instruct = strtok(dupString," ");
     char* ind1 = strtok(dupString," ");
-    // char* ind1 = strtok(NULL," ");
     ind1 = strtok(NULL," ");
     char* ind2 = strtok(NULL," ");
     char* ind3 = strtok(NULL," ");
@@ -354,46 +307,40 @@ void sendToworkersFordiseaseFrequency(WorkersInfo* ar, char* msg) {
         printf("Need to provide proper variables.\n\n");
     }
     else{
-        // int compDat = compareDates(ind2, ind3);
-        // if(compDat!=0 && compDat!=2){
-        //     printf("Give correct dates.\n\n");
-        // }
-        // else{
-            if( ind4==NULL ){ // didn't give country
+        if( ind4==NULL ){ // didn't give country
+            
+            int totalOccs = 0;
+            for(int i=0; i<((*ar)->numOfworkers); i++) {
+
+                sendMessageSock((*ar)->myWorkers[i]->sock, msg);
                 
-                int totalOccs = 0;
-                for(int i=0; i<((*ar)->numOfworkers); i++) {
-
-                    sendMessageSock((*ar)->myWorkers[i]->sock, msg);
-                    
-                    char arr[1024];
-                    char* readed = receiveMessageSock((*ar)->myWorkers[i]->sock, arr);
-                    totalOccs=totalOccs+atoi(readed);
-                    
-                    free(readed);
-                }
-                printf("Total occs %d\n", totalOccs);
-
+                char arr[1024];
+                char* readed = receiveMessageSock((*ar)->myWorkers[i]->sock, arr);
+                totalOccs=totalOccs+atoi(readed);
+                
+                free(readed);
             }
-            else{
-                
-                ind4 = strtok(ind4, "\n");
-                int position = ReturnIforCountry((*ar), ind4);
-                
-                if(position!=-1) {
+            printf("Total occs %d\n", totalOccs);
 
-                    sendMessageSock((*ar)->myWorkers[position]->sock, msg);
-                    
-                    char arr[1024];
-                    char* readed = receiveMessageSock((*ar)->myWorkers[position]->sock, arr);
-                    if(atoi(readed)!=0) {
-                        printf("Total occs %d\n", atoi(readed));
-                    }
-                    free(readed);
+        }
+        else{
+            
+            ind4 = strtok(ind4, "\n");
+            int position = ReturnIforCountry((*ar), ind4);
+            
+            if(position!=-1) {
+
+                sendMessageSock((*ar)->myWorkers[position]->sock, msg);
                 
+                char arr[1024];
+                char* readed = receiveMessageSock((*ar)->myWorkers[position]->sock, arr);
+                if(atoi(readed)!=0) {
+                    printf("Total occs %d\n", atoi(readed));
                 }
+                free(readed);
+            
             }
-        // }
+        }
     }
 }
 
@@ -401,11 +348,6 @@ void sendToworkersFornumPatientAdmissions(WorkersInfo* ar, char* msg) {
 
 
     char* dupString = strdup(msg);
-    // char* instruct = strtok(dupString," ");
-    // char* ind1 = strtok(NULL," ");
-    // char* ind2 = strtok(NULL," ");
-    // char* ind3 = strtok(NULL," ");
-    // char* ind4 = strtok(NULL," ");
     char* ind4 = strtok(dupString," ");
     ind4 = strtok(NULL," ");
     ind4 = strtok(NULL," ");

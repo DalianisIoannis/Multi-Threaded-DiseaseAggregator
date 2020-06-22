@@ -775,7 +775,6 @@ void handleWorkerQuerries(int sock, HashTable HT_disease, HashTable HT_country, 
                 countrylistNode node = cL->front;
                 while(node!=NULL) {
                     
-                    // ind ?
                     int received = diseaseFrequencyCountry(HT_country, ind1, node->country, ind2, ind3);
                     char* intTostr = malloc(12);
                     sprintf(intTostr, "%d", received);

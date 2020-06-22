@@ -24,11 +24,9 @@ patientRecord initRecord(char* line, char* INdate, char* country){
     p->diseaseID = strdup(token);
     if(p->diseaseID==NULL){ return NULL; }
 
-    // token   = strtok(NULL, " \t\n");
     p->country = strdup(country);
     if(p->country==NULL){ return NULL; }
 
-    // token   = strtok(NULL, " \t\n");
     p->entryDate = strdup(INdate);
     if(p->entryDate==NULL){ return NULL; }
 
@@ -36,8 +34,6 @@ patientRecord initRecord(char* line, char* INdate, char* country){
     p->age = strdup(token);
     if(p->age==NULL){ return NULL; }
 
-    // p->exitDate=NULL;
-    // token   = strtok(NULL, " \t\n");
     p->exitDate = strdup("--");
     if(p->exitDate==NULL){ return NULL; }
 

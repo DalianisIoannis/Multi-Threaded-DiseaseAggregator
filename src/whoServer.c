@@ -13,16 +13,11 @@ pthread_cond_t cond_var = PTHREAD_COND_INITIALIZER;
 pthread_t *Threadpool = NULL;
 threadQueuePtr myThreadQue = NULL;
 
-int Termination = 0;
-int Sigkill = 0;
-int MySignalFlagForSIGINT_SIGQUIT=0;
 WorkersInfo myWorkArray;
 
 void *handleConnections(void *Pnewsock);
 int setupServer(short port, int backlog);
 void handleQuerries(char* querry);
-void Myhandler(int sig, siginfo_t* siginfo, void* buf);
-void ServerHandler(struct sigaction *act, void (*Myhandler)(int, siginfo_t*, void*));
 
 int main(int argc, char **argv) {
 
@@ -56,9 +51,9 @@ int main(int argc, char **argv) {
     int statsPort = atoi(argv[4]);
     int numThreads = atoi(argv[6]);
     int bufferSize = atoi(argv[8]);
+    totalInserts = 0;
 
     struct sigaction *act = malloc(sizeof(struct sigaction));
-    // ServerHandler(act, Myhandler);
     fd_set readyDescriptors, currentDescriptors;
 
     myWorkArray = malloc(sizeof(workersIdForServer));
@@ -70,8 +65,6 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
-    //////////////////////////////////////////////////////////////////////////////////////////////////////
-    //////////////////////////////////////////////////////////////////////////////////////////////////////
     myThreadQue = newQueue(bufferSize);
 
     if( (Threadpool = malloc(numThreads*sizeof(pthread_t)))==NULL ) {
@@ -113,11 +106,6 @@ int main(int argc, char **argv) {
                         if (( newWorker = accept(workerSocket, workerPtr, &workerlen)) < 0) {
                             perror_exit("accept");
                         }
-                        
-                        // if(MySignalFlagForSIGINT_SIGQUIT==-1 || MySignalFlagForSIGINT_SIGQUIT==-2) {
-                        //     MySignalFlagForSIGINT_SIGQUIT=0;
-                        //     break;
-                        // }
 
                         printf("Accepted worker connection at %d\n", newWorker);
 
@@ -149,22 +137,9 @@ int main(int argc, char **argv) {
                     }
                     else {
 
-                        // memset(&worker, 0, sizeof(struct sockaddr_in));
-                        // socklen_t sa_len = sizeof(struct sockaddr_in);
-                        // int tmpRealPort = getsockname(i, (struct sockaddr *)&worker, &sa_len);
-                        // printf("In pid %d returned %d\n", getpid(), tmpRealPort);
-                        // char* toNtoa = strdup(inet_ntoa(worker.sin_addr));
-                        // printf("In pid %d toNtoa %s\n", getpid(), toNtoa);
-                        // int ntoHs = ntohs(worker.sin_port);
-                        // printf("In pid %d ntoHs %d\n", getpid(), ntoHs);
-
-                        // printf("Dextika client kai to array einai\n");
-                        // printWorkerInfo(myWorkArray);
-
                         int *pclient = malloc(sizeof(int));
                         *pclient = i;
-                        //////////////////////////////////////////////////////////////////////////////////////////////////////
-                        //////////////////////////////////////////////////////////////////////////////////////////////////////
+
                         pthread_mutex_lock(&mutexForThreadFunc);
 
                         enqueue(&myThreadQue, pclient, ArrayOfSocketFunc[i]);
@@ -244,7 +219,9 @@ void *handleConnections(void *Pnewsock) {
                         free(readed);
                         break;
                     }
-                    // printStatsFromConcat(readed);
+
+                    printStatsFromConcat(readed);
+
                     free(readed);
 
                 }
@@ -303,7 +280,7 @@ void *handleConnections(void *Pnewsock) {
                 delThreadNode(&tmp);
 
                 connectToallWorkers(&myWorkArray);
-                // take random input
+
                 for( ; ; ) {
 
                     char arr[100];
@@ -334,10 +311,6 @@ void handleQuerries(char* querry) {
 
     char* firstQ = strdup(querry);
     char* instruct = strtok(querry," ");
-    // char* ind1 = strtok(NULL," ");
-    // char* ind2 = strtok(NULL," ");
-    // char* ind3 = strtok(NULL," ");
-    // char* ind4 = strtok(NULL," ");
     char* ind5 = strtok(NULL," ");
     ind5 = strtok(NULL," ");
     ind5 = strtok(NULL," ");
@@ -374,29 +347,6 @@ void handleQuerries(char* querry) {
     free(firstQ);
     
     return;
-}
-
-void Myhandler(int sig, siginfo_t* siginfo, void* buf) {
-    if(sig==SIGINT || sig==SIGQUIT) {
-        printf("Child %d caught SIGINT or SIGQUIT.\n", getpid());
-        MySignalFlagForSIGINT_SIGQUIT=-1;
-    }
-    else if(sig==SIGUSR1) {
-        printf("Child %d caught SIGUSR1.\n", getpid());
-        MySignalFlagForSIGINT_SIGQUIT=-2;
-    }
-}
-
-void ServerHandler(struct sigaction *act, void (*Myhandler)(int, siginfo_t*, void*)) {
-
-    act->sa_handler = (void*)Myhandler;
-    act->sa_sigaction = Myhandler;
-    sigfillset(&act->sa_mask);
-    act->sa_flags = SA_NODEFER | SA_RESTART | SA_SIGINFO;
-    
-    sigaction(SIGUSR1, act, NULL);
-    sigaction(SIGINT, act, NULL);
-    sigaction(SIGQUIT, act, NULL);
 }
 
 

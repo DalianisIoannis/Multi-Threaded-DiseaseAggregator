@@ -28,11 +28,9 @@ clean:
 	rm -f ./pipeFiles/reader*
 	rm -f ./pipeFiles/writer*
 
-valgrind:
-	valgrind --track-origins=yes --trace-children=yes --leak-check=full --show-leak-kinds=all ./master -w 5 -b 32 -s "127.0.0.1" -p 9003 -i "./input_dir/"
-
-run:
-	./master -w 5 -b 32 -s 10 -p 15 -i "./input_dir/"	
+masterP:
+	# valgrind --track-origins=yes --trace-children=yes --leak-check=full --show-leak-kinds=all ./master -w 5 -b 32 -s "127.0.0.1" -p 9003 -i "./input_dir/"
+	./master -w 5 -b 32 -s "127.0.0.1" -p 9003 -i "./input_dir/"
 
 tcp:
 	$(CC) $(CFLAGS) -c $(SDIR)/threadQueue.c -o $(ODIR)/threadQueue.o $(LDFLAGS)
@@ -47,8 +45,9 @@ all:
 	make tcp
 	
 Server:
-	valgrind --track-origins=yes --trace-children=yes --leak-check=full ./whoServer -q 9002 -s 9003 -w 3 -b 32
-	# --show-leak-kinds=all
+	# valgrind --track-origins=yes --trace-children=yes --leak-check=full ./whoServer -q 9002 -s 9003 -w 3 -b 32 $(LDFLAGS)
+	./whoServer -q 9002 -s 9003 -w 3 -b 32
 
 Client:
-	valgrind --track-origins=yes --trace-children=yes --leak-check=full --show-leak-kinds=all ./whoClient -q "./queryFolder/queryFile.txt" -w numThreads -sp 9002 -sip "127.0.0.1"
+	# valgrind --track-origins=yes --trace-children=yes --leak-check=full --show-leak-kinds=all ./whoClient -q "./queryFolder/queryFile.txt" -w 7 -sp 9002 -sip "127.0.0.1" $(LDFLAGS)
+	./whoClient -q "./queryFolder/queryFile.txt" -w 7 -sp 9002 -sip "127.0.0.1"

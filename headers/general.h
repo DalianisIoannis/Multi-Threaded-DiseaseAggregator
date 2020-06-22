@@ -30,9 +30,9 @@ typedef struct worker
     str_node country;
 } worker;
 
-int compareDates(char*, char*);
-bool isNumber(const char*);
-int returnMaxInt(int, int);
-void swapINT(int*, int*);
-void swapSTR(char*, char*);
-void selectionSort(int*, int, char**);
+int     compareDates(char*, char*);
+bool    isNumber(const char*);
+int     returnMaxInt(int, int);
+void    swapINT(int*, int*);
+void    swapSTR(char*, char*);
+void    selectionSort(int*, int, char**);

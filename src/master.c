@@ -41,7 +41,7 @@ int main(int argc, char **argv)
     termination = 0;
     sigkill = 0;
     struct sigaction *act = malloc(sizeof(struct sigaction));
-    // HandlerInit(act, handler);
+    HandlerInit(act, handler);
 
     pid_t pid = 0;
     for (int i=0; i < numWorkers; i++) {

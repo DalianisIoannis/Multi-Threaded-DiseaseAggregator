@@ -14,8 +14,8 @@ typedef struct{
 typedef countryList *CountryList;
 
 
-CountryList initcountryList();
-void emptycountryList(CountryList*);
-void addCountryListNode(CountryList*, char*);
-CountryList makeCountryList(char*);
-void printCountryList(CountryList);
+CountryList     initcountryList();
+void            emptycountryList(CountryList*);
+void            addCountryListNode(CountryList*, char*);
+CountryList     makeCountryList(char*);
+void            printCountryList(CountryList);
