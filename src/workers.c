@@ -312,7 +312,6 @@ int WorkerRun(char* inDir, int bufferSize, int rfd, int wfd, int numWorkers){
         // printf("\tCountry %s", tmpSenderCountry->country);
         sendMessageSock(sock, tmpSenderCountry->country);
         tmpSenderCountry = tmpSenderCountry->next;
-        // printf("\n");
     }
     sendMessageSock(sock, "OK");
 
@@ -334,7 +333,7 @@ int WorkerRun(char* inDir, int bufferSize, int rfd, int wfd, int numWorkers){
         perror_exit("accept");
     }
 
-    handleWorkerQuerries(newCon, HT_disease, HT_country);
+    handleWorkerQuerries(newCon, HT_disease, HT_country, ListOfPatients, cL);
 
     close(newCon);
     close(conToServer);
@@ -684,19 +683,16 @@ int SetupServer(short port, int backlog) {
     return sSocket;
 }
 
-void handleWorkerQuerries(int sock, HashTable HT_disease, HashTable HT_country) {
+void handleWorkerQuerries(int sock, HashTable HT_disease, HashTable HT_country, Linked_List ListOfPatients, CountryList cL) {
 
     for( ; ; ) {
 
         char arr[100];
         char* readed = receiveMessageSock(sock, arr);
         if(strcmp(readed, "ENDOFQUERRIES")==0){
-            printf("Received ENDOFQUERRIES\n");
             free(readed);
             break;
         }
-
-        printf("From server received %s at pid %d\n", readed, getpid());
         
         // check what received
         char* instruct = strtok(readed," ");
@@ -716,13 +712,10 @@ void handleWorkerQuerries(int sock, HashTable HT_disease, HashTable HT_country) 
                 
                 sendMessageSock(sock, newInt);
                 
-                printf("Result is %s\n", newInt);
                 free(newInt);
 
             }
             else{   // gave country
-
-                printf("ind1 is %s ind4 %s ind2 %s ind3 %s\n", ind1, ind4, ind2, ind3 );
 
                 ind4 = strtok(ind4, "\n");
 
@@ -732,7 +725,6 @@ void handleWorkerQuerries(int sock, HashTable HT_disease, HashTable HT_country) 
 
                 sendMessageSock(sock, newInt);
                 
-                printf("Result is %s\n", newInt);
                 free(newInt);
 
             }
@@ -750,11 +742,9 @@ void handleWorkerQuerries(int sock, HashTable HT_disease, HashTable HT_country) 
                 char *returned = topkAgeRanges(HT_country, ind1, ind2, ind3, ind4, ind5);
 
                 if(returned!=NULL) {
-                    // sendMessage(wfd, returned, bufferSize);
                     sendMessageSock(sock, returned);
                 }
                 else {
-                    // sendMessage(wfd, "WRONG", bufferSize);
                     sendMessageSock(sock, "WRONG");
                 }
 
@@ -764,19 +754,117 @@ void handleWorkerQuerries(int sock, HashTable HT_disease, HashTable HT_country) 
         }
         else if(strcmp(instruct, "/searchPatientRecord")==0) {
 
-            // char* receive = returnPatientifExists(ListOfPatients, ind1);
-            // if(receive!=NULL) {
-            //     sendMessage(wfd, receive, bufferSize);
-            // }
-            // else {
-            //     sendMessage(wfd, "WRONG", bufferSize);
-            // }
-            // free(receive);
+            ind1 = strtok(ind1, "\n");
 
+            char* receive = returnPatientifExists(ListOfPatients, ind1);
+            if(receive!=NULL) {
+                sendMessageSock(sock, receive);
+            }
+            else {
+                sendMessageSock(sock, "WRONG");
+            }
+            free(receive);
+
+        }
+        else if(strcmp(instruct, "/numPatientAdmissions")==0) {
+
+            if(ind4==NULL) {    // no country
+
+                ind3 = strtok(ind3, "\n");
+
+                countrylistNode node = cL->front;
+                while(node!=NULL) {
+                    
+                    // ind ?
+                    int received = diseaseFrequencyCountry(HT_country, ind1, node->country, ind2, ind3);
+                    char* intTostr = malloc(12);
+                    sprintf(intTostr, "%d", received);
+
+                    char* strCatToRet = malloc(strlen(node->country)+strlen(intTostr)+1+1);
+                    strcpy(strCatToRet, node->country);
+                    strcat(strCatToRet, " ");
+                    strcat(strCatToRet, intTostr);
+
+                    sendMessageSock(sock, strCatToRet);
+                    
+                    free(intTostr);
+                    free(strCatToRet);
+                    node = node->next;
+                }
+                sendMessageSock(sock, "OK");
+            }
+            else {
+
+                ind4 = strtok(ind4, "\n");
+
+                int received = diseaseFrequencyCountry(HT_country, ind1, ind4, ind2, ind3);
+                    
+                if(received!=0) {
+                    char* intTostr = malloc(12);
+                    sprintf(intTostr, "%d", received);
+
+                    char* strCatToRet = malloc(strlen(ind4)+strlen(intTostr)+1+1);
+                    strcpy(strCatToRet, ind4);
+                    strcat(strCatToRet, " ");
+                    strcat(strCatToRet, intTostr);
+
+                    // sendMessage(wfd, strCatToRet, bufferSize);
+                    sendMessageSock(sock, strCatToRet);
+                    
+                    free(intTostr);
+                    free(strCatToRet);
+                }
+
+                sendMessageSock(sock, "OK");
+            }
+
+        }
+        else if(strcmp(instruct, "/numPatientDischarges")==0) {
+
+            if(ind4==NULL) {    // no country
+                ind3 = strtok(ind3, "\n");
+                countrylistNode node = cL->front;
+                while(node!=NULL) {
+                    char* tmp =numPatientDischargesCountry(HT_country, ind1, node->country, ind2, ind3);
+                    // printf("Country %s %s\n", node->country,  tmp);
+                    
+                    char* wholeStr = malloc( (strlen(node->country)+2+strlen(tmp))*sizeof(char) );
+                    strcpy(wholeStr, node->country);
+                    strcat(wholeStr, " ");
+                    strcat(wholeStr, tmp);
+
+                    // sendMessage(wfd, wholeStr, bufferSize);
+                    sendMessageSock(sock, wholeStr);
+
+                    free(wholeStr);
+                    free(tmp);
+                    node = node->next;
+                }
+                // sendMessage(wfd, "OK", bufferSize);
+                sendMessageSock(sock, "OK");
+            }
+            else {
+
+                ind4 = strtok(ind4, "\n");
+                char* tmp =numPatientDischargesCountry(HT_country, ind1, ind4, ind2, ind3);
+
+                if(strcmp(tmp, "0")==0) {
+                    sendMessageSock(sock, "NONE");
+                    free(tmp);
+                }
+                else {
+                    char* wholeStr = malloc( (strlen(ind4)+2+strlen(tmp))*sizeof(char) );
+                    strcpy(wholeStr, ind4);
+                    strcat(wholeStr, " ");
+                    strcat(wholeStr, tmp);
+                    sendMessageSock(sock, wholeStr);
+                    free(wholeStr);
+                    free(tmp);
+                }
+            }
         }
         
         free(readed);
-
     }
-    printf("OUT OF ENDOFQUERRIES\n");
+    printf("Exiting worker child %d!\n", getpid());
 }

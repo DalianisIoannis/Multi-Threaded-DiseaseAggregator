@@ -20,6 +20,7 @@
 #include <pthread.h>
 
 #include "./threadQueue.h"
+#include "./general.h"
 #include "./statistics.h"
 #include "./countryList.h"
 
@@ -71,6 +72,12 @@ void printWorkerInfo(WorkersInfo ar);
 void FinishallWorkers(WorkersInfo* ar);
 void sendMsgToAllWorkers(WorkersInfo* ar, char* msg);
 void connectToallWorkers(WorkersInfo* ar);
+void sendToworkersFornumPatientAdmissions(WorkersInfo* ar, char* msg);
+int ReturnIforCountry(WorkersInfo ar, char* country);
+void sendToworkersFordiseaseFrequency(WorkersInfo* ar, char* msg);
+void sendToworkersForsearchPatientRecord(WorkersInfo* ar, char* msg);
+void sendToworkersFornumPatientDischarges(WorkersInfo* ar, char* msg);
+void sendToworkersFortopk_AgeRanges(WorkersInfo* ar, char* msg);
 
 int check(int exp, const char *msg);
 void err_n_die(const char* fmt, ...);

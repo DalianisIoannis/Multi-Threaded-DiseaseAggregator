@@ -72,10 +72,7 @@ int main(int argc, char **argv) {
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////////////
-    //////////////////////////////////////////////////////////////////////////////////////////////////////
-    // connect
-
-    myThreadQue = newQueue();
+    myThreadQue = newQueue(bufferSize);
 
     if( (Threadpool = malloc(numThreads*sizeof(pthread_t)))==NULL ) {
         perror_exit("Threadpool");
@@ -166,12 +163,18 @@ int main(int argc, char **argv) {
 
                         int *pclient = malloc(sizeof(int));
                         *pclient = i;
+                        //////////////////////////////////////////////////////////////////////////////////////////////////////
+                        //////////////////////////////////////////////////////////////////////////////////////////////////////
                         pthread_mutex_lock(&mutexForThreadFunc);
 
                         enqueue(&myThreadQue, pclient, ArrayOfSocketFunc[i]);
                         FD_CLR(i, &currentDescriptors);
                         
                         pthread_cond_signal(&cond_var);
+                        // while((*Queue)->count >= (*Queue)->bufferSize) {
+                        //     // found full
+                        //     pthread_cond_wait(&cond_nonfull, &mtx);
+                        // }
                         pthread_mutex_unlock(&mutexForThreadFunc);
 
                     }
@@ -249,7 +252,6 @@ void *handleConnections(void *Pnewsock) {
 
                 // // receive numWorkers
                 readed = receiveMessageSock(tmpSock, buf);
-                printf("Received after stats %s\n", readed);
 
                 pthread_mutex_lock(&mutexForMakingWorkAr);
                 if(myWorkArray->hasBeenMade==false) {   // first worker
@@ -273,7 +275,6 @@ void *handleConnections(void *Pnewsock) {
                     }
 
                     free(tmpNumWorks);
-                    printf("\nMade size %d\n\n", myWorkArray->numOfworkers);
                 }
                 free(readed);
 
@@ -312,9 +313,7 @@ void *handleConnections(void *Pnewsock) {
                         break;
                     }
 
-                    // void handleQuerries();
-
-                    printf("Received querry from client %s\n", readed);
+                    printf("Querry: %s\n", readed);
                     
                     handleQuerries(readed);
                     
@@ -323,7 +322,6 @@ void *handleConnections(void *Pnewsock) {
                 }
 
                 FinishallWorkers(&myWorkArray);
-                // sendMessageSock(tmpSock, "Server received statistics.");
                 printf("Closed connection to client!\n");
                 close(tmpSock);
             }
@@ -335,51 +333,42 @@ void *handleConnections(void *Pnewsock) {
 void handleQuerries(char* querry) {
 
     char* firstQ = strdup(querry);
-
     char* instruct = strtok(querry," ");
-    char* ind1 = strtok(NULL," ");
-    char* ind2 = strtok(NULL," ");
-    char* ind3 = strtok(NULL," ");
-    char* ind4 = strtok(NULL," ");
+    // char* ind1 = strtok(NULL," ");
+    // char* ind2 = strtok(NULL," ");
+    // char* ind3 = strtok(NULL," ");
+    // char* ind4 = strtok(NULL," ");
     char* ind5 = strtok(NULL," ");
+    ind5 = strtok(NULL," ");
+    ind5 = strtok(NULL," ");
+    ind5 = strtok(NULL," ");
+    ind5 = strtok(NULL," ");
 
     if( strcmp(instruct, "/diseaseFrequency")==0 ){ // diseaseFrequency virusName date1 date2 [country]
 
-        if( ind4==NULL ){ // didn't give country
+        sendToworkersFordiseaseFrequency(&myWorkArray, firstQ);
 
-            sendMsgToAllWorkers(&myWorkArray, firstQ);
-
-        }
-        else{
-
-            sendMsgToAllWorkers(&myWorkArray, firstQ);
-
-        }
     }
     else if(strcmp(instruct, "/topk-AgeRanges")==0) {
         if( ind5==NULL ){
             printf("Need to provide proper variables.\n");
-            // sendMessage(wfd, "WRONG", bufferSize);
         }
         else {
 
-            sendMsgToAllWorkers(&myWorkArray, firstQ);
+            sendToworkersFortopk_AgeRanges(&myWorkArray, firstQ);
 
         }
     }
     else if(strcmp(instruct, "/searchPatientRecord")==0) {
 
-        // char* receive = returnPatientifExists(ListOfPatients, ind1);
-        // if(receive!=NULL) {
-        //     sendMessage(wfd, receive, bufferSize);
-        // }
-        // else {
-        //     sendMessage(wfd, "WRONG", bufferSize);
-        // }
-        // free(receive);
+        sendToworkersForsearchPatientRecord(&myWorkArray, firstQ);
 
-        // sendMsgToAllWorkers(&myWorkArray, firstQ);
-
+    }
+    else if(strcmp(instruct, "/numPatientAdmissions")==0) {
+        sendToworkersFornumPatientAdmissions(&myWorkArray, firstQ);
+    }
+    else if(strcmp(instruct, "/numPatientDischarges")==0) {
+        sendToworkersFornumPatientDischarges(&myWorkArray, firstQ);
     }
 
     free(firstQ);

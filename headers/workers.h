@@ -37,4 +37,4 @@ workerDataNode makeWorkerArCell(pid_t, int);
 void emptyworkerNode(workerDataNode*);
 int WorkerRun(char*, int, int, int, int);
 int inputPatientsToStructures(char*, Linked_List*, char* date, char* country, StatisticsList*, Linked_List *);
-void handleWorkerQuerries(int sock, HashTable HT_disease, HashTable HT_country);
+void handleWorkerQuerries(int sock, HashTable HT_disease, HashTable HT_country, Linked_List ListOfPatients, CountryList cL);
